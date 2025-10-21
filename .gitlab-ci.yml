@@ -1,9 +1,8 @@
-# .gitlab-ci.yml
 stages:
   - security-scan
 
 variables:
-  KUBE_NAMESPACE: "secure-code-box"
+  KUBE_NAMESPACE: "scb"
 
 image:
   name: bitnami/kubectl:latest
@@ -13,13 +12,19 @@ semgrep-scan:
   stage: security-scan
   only:
     - main
+
+  # Opcional pero útil: prepara KUBECONFIG antes del script
+  before_script:
+    - echo "Configurando acceso a Kubernetes..."
+    - 'echo "$KUBE_CONFIG_BASE64" | base64 -d > kubeconfig.yaml'
+    - export KUBECONFIG="$CI_PROJECT_DIR/kubeconfig.yaml"
+    - kubectl version --client
+
   script:
     - echo "Iniciando escaneo de seguridad con secureCodeBox..."
-    - echo $KUBE_CONFIG_BASE64 | base64 -d > kubeconfig.yaml
-    - export KUBECONFIG=$PWD/kubeconfig.yaml
     - echo "Verificando conexion con Kubernetes..."
     - kubectl config get-contexts
-    - kubectl -n $KUBE_NAMESPACE get pods
+    - kubectl -n "$KUBE_NAMESPACE" get pods
     - echo "Aplicando manifiesto de escaneo: scb-scan.yaml"
-    - kubectl -n $KUBE_NAMESPACE apply -f scb-scan.yaml
+    - kubectl -n "$KUBE_NAMESPACE" apply -f scb-scan.yaml
     - echo "Escaneo 'Scan' creado en Kubernetes. secureCodeBox tomará el control."
