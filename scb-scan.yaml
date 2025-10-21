@@ -20,7 +20,7 @@ spec:
   # 3. El Objetivo (Target)
   target:
     # El clon de Git (sCB lo clonará)
-    location: "https://gitlab.com/tu-usuario/mi-app-vulnerable.git"
+    location: "https://gitlab.com/ahmedpuco03/mi-app-vulnerable.git"
     # Referencia al Secret que creamos para el token de GitLab
     credentials:
       secretName: "gitlab-scanner-credentials"
