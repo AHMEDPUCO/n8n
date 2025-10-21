@@ -4,7 +4,7 @@ stages:
 
 variables:
   # El namespace donde aplicaremos el Scan
-  KUBE_NAMESPACE: "secure-code-box"
+  KUBE_NAMESPACE: "scb"
 
 # Este job usa una imagen que ya tiene kubectl
 image:
