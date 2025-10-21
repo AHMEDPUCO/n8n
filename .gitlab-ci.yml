@@ -6,32 +6,20 @@ variables:
   # El namespace donde aplicaremos el Scan
   KUBE_NAMESPACE: "scb"
 
-# Este job usa una imagen que ya tiene kubectl
 image:
   name: bitnami/kubectl:latest
   entrypoint: [""]
 
 semgrep-scan:
   stage: security-scan
-  # Solo corre en la rama 'main'
   only:
     - main
   script:
     - echo "Iniciando escaneo de seguridad con secureCodeBox..."
-    # 1. Decodificar el KUBE_CONFIG desde la variable de GitLab
-    - echo $KUBE_CONFIG_BASE64 | base64 -d > kubeconfig.yaml
+    - echo $KUBE_CONFIG_BASE64 | base64 -d > kubeconfig.yaml # 1. Decodificar el KUBE_CONFIG
     - export KUBECONFIG=$PWD/kubeconfig.yaml
-    
-    # 2. Verificar conexión (Opcional pero recomendado)
-    - kubectl config get-contexts
+    - kubectl config get-contexts # 2. Verificar conexión
     - kubectl -n $KUBE_NAMESPACE get pods
-    
-    # 3. ¡El Trigger! Aplicamos el manifiesto del escaneo
-    # Esto crea el recurso "Scan" en Kubernetes
-    - echo "Aplicando manifiesto de escaneo: scb-scan.yaml"
+    - echo "Aplicando manifiesto de escaneo: scb-scan.yaml" # 3. ¡El Trigger! Aplicar manifiesto
     - kubectl -n $KUBE_NAMESPACE apply -f scb-scan.yaml
-    
-    # 4. (Opcional) Esperar a que termine
-    # Para este ejemplo, solo lo disparamos y dejamos que sCB se encargue.
-    # En un pipeline real, podrías añadir un script que espere (kubectl wait).
-    - echo "Escaneo 'Scan' creado en Kubernetes. secureCodeBox tomará el control."
+    - echo "Escaneo 'Scan' creado en Kubernetes. secureCodeBox tomará el control." # 4. Confirmar creación
