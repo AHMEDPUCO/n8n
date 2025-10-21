@@ -1,0 +1,39 @@
+# scb-scan.yaml
+apiVersion: "execution.securecodebox.io/v1"
+kind: Scan
+metadata:
+  # GitLab CI le dará un nombre único, pero definimos un prefijo
+  generateName: "semgrep-mi-app-"
+  # ¡Importante! En el namespace donde corre sCB
+  namespace: scb
+spec:
+  # 1. El Tipo de Escaneo
+  scanType: "semgrep"
+
+  # 2. Parámetros para Semgrep
+  parameters:
+    # Usamos la configuración de reglas "p/ci" (rápida, para CI)
+    - "--config=p/ci"
+    # Escanea el directorio raíz "."
+    - "."
+
+  # 3. El Objetivo (Target)
+  target:
+    # El clon de Git (sCB lo clonará)
+    location: "https://gitlab.com/tu-usuario/mi-app-vulnerable.git"
+    # Referencia al Secret que creamos para el token de GitLab
+    credentials:
+      secretName: "gitlab-scanner-credentials"
+      key: "token"
+      type: "GITLAB_TOKEN"
+
+  # 4. Los Hooks (¡La magia!)
+  hooks:
+    # Referenciamos el hook de persistencia que creamos
+    - hook: "defectdojo-persistence-hook"
+      # Y le pasamos los parámetros específicos de este escaneo
+      parameters:
+        # Aquí va el ID del Producto que anotamos en el Paso 1
+        - "defectDojo.productId=1"
+        - "defectDojo.engagementName=Scan Semgrep (GitLab CI)"
+        - "defectDojo.service=mi-app-vulnerable"
