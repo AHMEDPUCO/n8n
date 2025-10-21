@@ -1,13 +1,37 @@
-# You can override the included template(s) by including variable overrides
-# SAST customization: https://docs.gitlab.com/ee/user/application_security/sast/#customizing-the-sast-settings
-# Secret Detection customization: https://docs.gitlab.com/user/application_security/secret_detection/pipeline/configure
-# Dependency Scanning customization: https://docs.gitlab.com/ee/user/application_security/dependency_scanning/#customizing-the-dependency-scanning-settings
-# Container Scanning customization: https://docs.gitlab.com/ee/user/application_security/container_scanning/#customizing-the-container-scanning-settings
-# Note that environment variables can be set in several places
-# See https://docs.gitlab.com/ee/ci/variables/#cicd-variable-precedence
+# .gitlab-ci.yml
 stages:
-- test
-sast:
-  stage: test
-include:
-- template: Security/SAST.gitlab-ci.yml
+  - security-scan
+
+variables:
+  # El namespace donde aplicaremos el Scan
+  KUBE_NAMESPACE: "secure-code-box"
+
+# Este job usa una imagen que ya tiene kubectl
+image:
+  name: bitnami/kubectl:latest
+  entrypoint: [""]
+
+semgrep-scan:
+  stage: security-scan
+  # Solo corre en la rama 'main'
+  only:
+    - main
+  script:
+    - echo "Iniciando escaneo de seguridad con secureCodeBox..."
+    # 1. Decodificar el KUBE_CONFIG desde la variable de GitLab
+    - echo $KUBE_CONFIG_BASE64 | base64 -d > kubeconfig.yaml
+    - export KUBECONFIG=$PWD/kubeconfig.yaml
+    
+    # 2. Verificar conexión (Opcional pero recomendado)
+    - kubectl config get-contexts
+    - kubectl -n $KUBE_NAMESPACE get pods
+    
+    # 3. ¡El Trigger! Aplicamos el manifiesto del escaneo
+    # Esto crea el recurso "Scan" en Kubernetes
+    - echo "Aplicando manifiesto de escaneo: scb-scan.yaml"
+    - kubectl -n $KUBE_NAMESPACE apply -f scb-scan.yaml
+    
+    # 4. (Opcional) Esperar a que termine
+    # Para este ejemplo, solo lo disparamos y dejamos que sCB se encargue.
+    # En un pipeline real, podrías añadir un script que espere (kubectl wait).
+    - echo "Escaneo 'Scan' creado en Kubernetes. secureCodeBox tomará el control."
