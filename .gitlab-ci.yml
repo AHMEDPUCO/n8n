@@ -25,6 +25,5 @@ semgrep-scan:
     - echo "Verificando conexion con Kubernetes..."
     - kubectl config get-contexts
     - kubectl -n "$KUBE_NAMESPACE" get pods
-    - echo "Aplicando manifiesto de escaneo: scb-scan.yaml"
     - kubectl -n "$KUBE_NAMESPACE" apply -f scb-scan.yaml
     - echo "Escaneo 'Scan' creado en Kubernetes. secureCodeBox tomará el control."
