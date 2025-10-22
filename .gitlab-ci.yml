@@ -1,29 +1,41 @@
+# .gitlab-ci.yml
 stages:
   - security-scan
 
 variables:
+  # El namespace donde corre secureCodeBox
   KUBE_NAMESPACE: "scb"
-
-image:
-  name: bitnami/kubectl:latest
-  entrypoint: [""]
 
 semgrep-scan:
   stage: security-scan
+  
+  # ¡CLAVE! Selecciona el runner que acabamos de instalar en K8s
+  tags:
+    - k8s-runner
+
+  # ¡CLAVE! Este job ahora necesita un contenedor
+  # que tenga 'kubectl' instalado.
+  image:
+    name: bitnami/kubectl:latest
+    entrypoint: [""]
+
   only:
     - main
-
-  # Opcional pero útil: prepara KUBECONFIG antes del script
-  before_script:
-    - echo "Configurando acceso a Kubernetes..."
-    - 'echo "$KUBE_CONFIG_BASE64" | base64 -d > kubeconfig.yaml'
-    - export KUBECONFIG="$CI_PROJECT_DIR/kubeconfig.yaml"
-    - kubectl version --client
-
+    
   script:
-    - echo "Iniciando escaneo de seguridad con secureCodeBox..."
-    - echo "Verificando conexion con Kubernetes..."
+    # Este script ahora se ejecuta DENTRO del pod del runner
+    # en Minikube. Necesita su propio 'kubeconfig'.
+    
+    # PERO, como el pod del runner corre DENTRO del cluster,
+    # ¡kubectl funciona automáticamente!
+    # No necesitamos KUBE_CONFIG_BASE64.
+    
+    - echo "¡Corriendo dentro de un pod de Kubernetes!"
+    - echo "Verificando conexion (dentro-del-cluster)..."
     - kubectl config get-contexts
-    - kubectl -n "$KUBE_NAMESPACE" get pods
-    - kubectl -n "$KUBE_NAMESPACE" apply -f scb-scan.yaml
-    - echo "Escaneo 'Scan' creado en Kubernetes. secureCodeBox tomará el control."
+    
+    # APLICAMOS EL ESCANEO AL NAMESPACE DE SECURECODEBOX
+    - echo "Aplicando manifiesto de escaneo a sCB..."
+    - kubectl -n $KUBE_NAMESPACE apply -f scb-scan.yaml
+    
+    - echo "Escaneo 'Scan' creado en Kubernetes."
