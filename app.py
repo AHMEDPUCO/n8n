@@ -12,3 +12,4 @@ def another_vulnerable_call(request):
     subprocess.run(cmd, shell=True)
 
 print("Archivo vulnerable de prueba")
+print("Hola mundo")
