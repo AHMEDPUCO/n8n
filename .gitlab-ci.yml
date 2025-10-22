@@ -2,7 +2,7 @@ stages:
   - security-scan
 
 variables:
-  KUBE_NAMESPACE: "secure-code-box"
+  KUBE_NAMESPACE: "scb"
 
 semgrep-scan:
   stage: security-scan
