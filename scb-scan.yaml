@@ -4,29 +4,12 @@ metadata:
   generateName: "semgrep-mi-app-"
   namespace: scb
 spec:
-  # 1. Tipo de Escaneo
   scanType: "semgrep"
 
-  # 2. Parámetros de Semgrep
   parameters:
     - "--config=p/ci"
     - "."
 
-  # 3. Repositorio objetivo
-  target:
-    location: "https://gitlab.com/ahmedpuco03/mi-app-vulnerable.git"
-    credentials:
-      secretName: "gitlab-scanner-credentials"
-      key: "token"
-      type: "GITLAB_TOKEN"
-
-  # 4. Hook DefectDojo
-  hooks:
-    - hook: "defectdojo-persistence-hook"
-      env:
-        - name: DEFECTDOJO_PRODUCT_ID
-          value: "1"
-        - name: DEFECTDOJO_ENGAGEMENT_NAME
-          value: "Scan Semgrep (GitLab CI)"
-        - name: DEFECTDOJO_SERVICE
-          value: "mi-app-vulnerable"
+  git:
+    url: "https://gitlab.com/ahmedpuco03/mi-app-vulnerable.git"
+    secret: "gitlab-scanner-credentials"  # debe existir en el namespace
