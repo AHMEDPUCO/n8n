@@ -9,7 +9,5 @@ spec:
   parameters:
     - "--config=p/ci"
     - "."
-
-  git:
-    url: "https://gitlab.com/ahmedpuco03/mi-app-vulnerable.git"
-    secret: "gitlab-scanner-credentials"  # debe existir en el namespace
+    - url: "https://gitlab.com/ahmedpuco03/mi-app-vulnerable.git"
+    - secret: "gitlab-scanner-credentials"  # debe existir en el namespace
