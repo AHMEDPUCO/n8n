@@ -1,13 +1,28 @@
-apiVersion: "execution.securecodebox.io/v1"
+apiVersion: execution.securecodebox.io/v1
 kind: Scan
 metadata:
   generateName: "semgrep-mi-app-"
   namespace: scb
 spec:
   scanType: "semgrep"
-
   parameters:
     - "--config=p/ci"
-    - "."
-    - "https://gitlab.com/ahmedpuco03/mi-app-vulnerable.git"
-    - "gitlab-scanner-credentials"  # debe existir en el namespace
+    - "."  # analizará el código clonado aquí
+  volumes:
+    - name: source
+      emptyDir: {}
+  initContainers:
+    - name: clone-repo
+      image: alpine/git
+      command:
+        - /bin/sh
+        - -c
+        - |
+          echo "Clonando repositorio..."
+          git clone https://gitlab.com/ahmedpuco03/mi-app-vulnerable.git /src
+      volumeMounts:
+        - name: source
+          mountPath: /src
+  volumeMounts:
+    - name: source
+      mountPath: /src
