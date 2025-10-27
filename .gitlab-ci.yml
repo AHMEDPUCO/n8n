@@ -23,5 +23,3 @@ semgrep-scan:
     - echo "Esperando a que el escaneo termine..."
     - kubectl -n $KUBE_NAMESPACE get scan
     - echo "Escaneo completado. Desplegando resultados a DefectDojo..."
-    # Aquí podrías agregar un paso para subir los resultados a DefectDojo, si es necesario.
-    - kubectl -n $KUBE_NAMESPACE logs -l app=defectdojo-persistence-provider
