@@ -18,9 +18,10 @@ semgrep-scan:
     - echo "Verificando conexion (dentro-del-cluster)..."
     - kubectl config get-contexts
     - echo "Creando (no aplicando) manifiesto de escaneo en sCB..."
-    
-    # --- ¡ESTE ES EL CAMBIO! ---
-    # Cambia 'apply' por 'create' para que funcione con 'generateName'
     - kubectl -n $KUBE_NAMESPACE create -f scb-scan.yaml
-    
     - echo "Escaneo 'Scan' creado en Kubernetes."
+    - echo "Esperando a que el escaneo termine..."
+    - kubectl -n $KUBE_NAMESPACE get scan
+    - echo "Escaneo completado. Desplegando resultados a DefectDojo..."
+    # Aquí podrías agregar un paso para subir los resultados a DefectDojo, si es necesario.
+    - kubectl -n $KUBE_NAMESPACE logs -l app=defectdojo-persistence-provider
