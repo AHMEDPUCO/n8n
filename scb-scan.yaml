@@ -4,7 +4,7 @@ metadata:
   generateName: "semgrep-mi-app-"
   namespace: scb
   annotations:
-    defectdojo.securecodebox.io/product-type-name: "default"
+    defectdojo.securecodebox.io/product-type-name: "USFQ-Apps"
 spec:
   scanType: "semgrep"
   parameters:
