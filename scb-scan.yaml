@@ -3,6 +3,8 @@ kind: Scan
 metadata:
   generateName: "semgrep-mi-app-"
   namespace: scb
+  # Las anotaciones pueden quedarse, pero el bloque 'persistence'
+  # tendrá prioridad y es más confiable.
   annotations:
     defectdojo.securecodebox.io/product-type-name: "USFQ-Apps"
     defectdojo.securecodebox.io/tool-type-name: "Semgrep"
@@ -10,7 +12,7 @@ spec:
   scanType: "semgrep"
   parameters:
     - "--config=p/ci"
-    - "."  # analizará el código clonado aquí
+    - "."
   volumes:
     - name: source
       emptyDir: {}
@@ -29,3 +31,21 @@ spec:
   volumeMounts:
     - name: source
       mountPath: /src
+  
+  # --- INICIO DE LA CORRECCIÓN ---
+  # Añade este bloque para controlar explícitamente la persistencia
+  persistence:
+    defectDojo:
+      # Dile a SCB que use un producto que YA existe en DefectDojo.
+      # (Debes crear este producto manualmente en la UI de DefectDojo
+      #  y asignarle el ProductType "USFQ-Apps").
+      product:
+        # Usa el nombre exacto del producto en DefectDojo
+        name: "mi-app-vulnerable1" 
+        
+      engagement:
+        # Define cómo se llamará el 'Engagement' (la prueba)
+        name: "Semgrep Scan (CI)"
+        # Puedes usar variables de SCB para hacerlo dinámico
+        # name: "Semgrep Scan - {{.spec.scanType}}-{{.metadata.name}}"
+  # --- FIN DE LA CORRECCIÓN ---
