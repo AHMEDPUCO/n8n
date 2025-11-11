@@ -10,6 +10,7 @@ metadata:
     defectdojo.securecodebox.io/product-type-name: "USFQ-Apps"
     defectdojo.securecodebox.io/tool-configuration-id: "2"
     defectdojo.securecodebox.io/product-id: "8"
+    defectdojo.securecodebox.io/engagement-id: "38"
 spec:
   scanType: "semgrep"
   parameters:
