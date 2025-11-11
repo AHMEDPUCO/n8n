@@ -8,7 +8,6 @@ metadata:
   annotations:
     defectdojo.securecodebox.io/product-name: "mi-app-vulnerable1" # <- Reemplaza con el nombre real
     defectdojo.securecodebox.io/product-type-name: "USFQ-Apps"
-    defectdojo.securecodebox.io/tool-type-name: "Semgrep"
 spec:
   scanType: "semgrep"
   parameters:
