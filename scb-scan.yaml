@@ -32,21 +32,3 @@ spec:
   volumeMounts:
     - name: source
       mountPath: /src
-  
-  # --- INICIO DE LA CORRECCIÓN ---
-  # Añade este bloque para controlar explícitamente la persistencia
-  persistence:
-    defectDojo:
-      # Dile a SCB que use un producto que YA existe en DefectDojo.
-      # (Debes crear este producto manualmente en la UI de DefectDojo
-      #  y asignarle el ProductType "USFQ-Apps").
-      product:
-        # Usa el nombre exacto del producto en DefectDojo
-        name: "mi-app-vulnerable1" 
-        
-      engagement:
-        # Define cómo se llamará el 'Engagement' (la prueba)
-        name: "Semgrep Scan (CI)"
-        # Puedes usar variables de SCB para hacerlo dinámico
-        # name: "Semgrep Scan - {{.spec.scanType}}-{{.metadata.name}}"
-  # --- FIN DE LA CORRECCIÓN ---
