@@ -3,13 +3,20 @@ kind: Scan
 metadata:
   generateName: "semgrep-mi-app-"
   namespace: scb
+  name: "semgrep-mi-app-vulnerable1"
   annotations:
     defectdojo.securecodebox.io/product-name: "mi-app-vulnerable1"
     defectdojo.securecodebox.io/product-type-name: "USFQ-Apps"
-    defectdojo.securecodebox.io/product-id: "8"
-    defectdojo.securecodebox.io/engagement-id: "38"
+    defectdojo.securecodebox.io/product-description: |
+      Aplicación vulnerable de ejemplo para pruebas internas y desarrollo seguro.
+      Contiene vulnerabilidades típicas de aplicaciones web educativas y de laboratorio.
+    defectdojo.securecodebox.io/product-tags: "vulnerable,appsec,educativo,lab"
+    defectdojo.securecodebox.io/engagement-name: "mi-app-vulnerable1 Engagement"
+    defectdojo.securecodebox.io/engagement-version: "v1.0"
+    defectdojo.securecodebox.io/engagement-tags: "manual,automated"
+    defectdojo.securecodebox.io/engagement-deduplicate-on-engagement: "true"
     defectdojo.securecodebox.io/test-title: "Semgrep Scan of mi-app-vulnerable1"
-    defectdojo.securecodebox.io/test-type: "SAST"  # Static Application Security Testing
+    defectdojo.securecodebox.io/test-type: "SAST"
     defectdojo.securecodebox.io/environment: "Development"
 spec:
   scanType: "semgrep"
