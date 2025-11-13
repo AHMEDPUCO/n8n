@@ -10,7 +10,10 @@ metadata:
     defectdojo.securecodebox.io/product-name: "mi-app-vulnerable1"
     defectdojo.securecodebox.io/product-type-name: "USFQ-Apps"
     defectdojo.securecodebox.io/tool-configuration-id: "2"
-    defectdojo.securecodebox.io/engagement-id: "38"
+    defectdojo.securecodebox.io/engagement-id: "43"
+    defectdojo.securecodebox.io/engagemente.name: "pruebas_semgrep"
+    defectdojo.securecodebox.io/test-type: "Semgrep JSON Report"
+
 spec:
   scanType: "semgrep"
   parameters:
