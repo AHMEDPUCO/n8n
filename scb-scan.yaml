@@ -5,6 +5,7 @@ metadata:
   namespace: scb
   name: "semgrep-mi-app-vulnerable1"
   annotations:
+    defectdojo.securecodebox.io/product-id: "8"
     defectdojo.securecodebox.io/product-name: "mi-app-vulnerable1"
     defectdojo.securecodebox.io/product-type-name: "USFQ-Apps"
     defectdojo.securecodebox.io/product-description: |
