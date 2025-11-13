@@ -4,7 +4,8 @@ metadata:
   generateName: "semgrep-mi-app-"
   namespace: scb
   annotations:
-    defectdojo.securecodebox.io/product-id: "8"
+    defectdojo.securecodebox.io/product-id: "8"           # Producto existente en DefectDojo
+    defectdojo.securecodebox.io/product-type-id: "2"      # Tipo de producto (ID) correspondiente
     defectdojo.securecodebox.io/test-title: "Semgrep Scan mi-app-vulnerable"
     defectdojo.securecodebox.io/test-type: "SAST"
     defectdojo.securecodebox.io/environment: "Development"
