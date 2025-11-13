@@ -34,6 +34,3 @@ spec:
   volumeMounts:
     - name: source
       mountPath: /src
-  hookSelector:
-    matchLabels:
-      defectdojo.securecodebox.io/enabled: "true"
