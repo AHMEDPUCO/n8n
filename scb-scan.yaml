@@ -3,14 +3,6 @@ kind: Scan
 metadata:
   generateName: "semgrep-mi-app-"
   namespace: scb
-  # Las anotaciones pueden quedarse, pero el bloque 'persistence'
-  # tendrá prioridad y es más confiable.
-  annotations:
-    defectdojo.securecodebox.io/product-name: "mi-app-vulnerable1" # <- Reemplaza con el nombre real
-    defectdojo.securecodebox.io/product-type-name: "USFQ-Apps"
-    defectdojo.securecodebox.io/tool-configuration-id: "2"
-    defectdojo.securecodebox.io/product-id: "8"
-    defectdojo.securecodebox.io/engagement-id: "38"
 spec:
   scanType: "semgrep"
   parameters:
@@ -34,3 +26,17 @@ spec:
   volumeMounts:
     - name: source
       mountPath: /src
+  hookSelector:
+    matchLabels:
+      defectdojo.securecodebox.io/enabled: "true"
+  env:
+    - name: "DEFECTDOJO_PRODUCT_NAME"
+      value: "mi-app-vulnerable1"
+    - name: "DEFECTDOJO_PRODUCT_TYPE_NAME"
+      value: "USFQ-Apps"
+    - name: "DEFECTDOJO_TOOL_CONFIGURATION_ID"
+      value: "2"
+    - name: "DEFECTDOJO_PRODUCT_ID"
+      value: "8"
+    - name: "DEFECTDOJO_ENGAGEMENT_ID"
+      value: "38"
