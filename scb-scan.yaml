@@ -3,6 +3,14 @@ kind: Scan
 metadata:
   generateName: "semgrep-mi-app-"
   namespace: scb
+  annotations:
+    defectdojo.securecodebox.io/product-name: "mi-app-vulnerable1"
+    defectdojo.securecodebox.io/product-type-name: "USFQ-Apps"
+    defectdojo.securecodebox.io/product-id: "8"
+    defectdojo.securecodebox.io/engagement-id: "38"
+    defectdojo.securecodebox.io/test-title: "Semgrep Scan of mi-app-vulnerable1"
+    defectdojo.securecodebox.io/test-type: "SAST"  # Static Application Security Testing
+    defectdojo.securecodebox.io/environment: "Development"
 spec:
   scanType: "semgrep"
   parameters:
@@ -29,14 +37,3 @@ spec:
   hookSelector:
     matchLabels:
       defectdojo.securecodebox.io/enabled: "true"
-  env:
-    - name: "DEFECTDOJO_PRODUCT_NAME"
-      value: "mi-app-vulnerable1"
-    - name: "DEFECTDOJO_PRODUCT_TYPE_NAME"
-      value: "USFQ-Apps"
-    - name: "DEFECTDOJO_TOOL_CONFIGURATION_ID"
-      value: "2"
-    - name: "DEFECTDOJO_PRODUCT_ID"
-      value: "8"
-    - name: "DEFECTDOJO_ENGAGEMENT_ID"
-      value: "38"
