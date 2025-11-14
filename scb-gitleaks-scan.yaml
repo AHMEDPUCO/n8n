@@ -1,0 +1,52 @@
+apiVersion: execution.securecodebox.io/v1
+kind: Scan
+metadata:
+  generateName: "gitleaks-mi-app-"
+  namespace: scb
+  annotations:
+    # --- Configuración de DefectDojo (copiada de tus otros scans) ---
+    defectdojo.securecodebox.io/product-id: "8"
+    defectdojo.securecodebox.io/product-name: "mi-app-vulnerable1"
+    defectdojo.securecodebox.io/product-type-name: "USFQ-Apps"
+    defectdojo.securecodebox.io/tool-configuration-id: "2"
+    defectdojo.securecodebox.io/engagement-id: "43"
+    
+    # --- Cambios Específicos para Gitleaks ---
+    defectdojo.securecodebox.io/engagement.name: "pruebas_gitleaks" # Nuevo nombre de engagement
+    defectdojo.securecodebox.io/test-type: "Gitleaks Scan"        # ¡Importante! Tipo de Test para Gitleaks
+spec:
+  # --- Tipo de Escaneo ---
+  scanType: "gitleaks"
+  
+  # --- Parámetros de Gitleaks ---
+  parameters:
+    - "detect"      # Comando para detectar secretos
+    - "--source"    # Flag para indicar la carpeta
+    - "/src/"       # Carpeta donde clonamos el repo
+  
+  # --- Definición del Volumen ---
+  # (Idéntico a tus otros escaneos)
+  volumes:
+    - name: source
+      emptyDir: {}
+  
+  # --- Contenedor de Inicialización (Git Clone) ---
+  # (Idéntico a tus otros escaneos)
+  initContainers:
+    - name: clone-repo
+      image: alpine/git
+      command:
+        - /bin/sh
+        - -c
+        - |
+          echo "Clonando repositorio para Gitleaks..."
+          git clone https://gitlab.com/ahmedpuco03/mi-app-vulnerable.git /src
+      volumeMounts:
+        - name: source
+          mountPath: /src
+          
+  # --- Montura del Volumen en el Escáner ---
+  # (Idéntico a tus otros escaneos)
+  volumeMounts:
+    - name: source
+      mountPath: /src
