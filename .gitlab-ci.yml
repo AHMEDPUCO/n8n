@@ -1,25 +1,59 @@
+# -----------------------------------------------------------------
+# Pipeline para ejecutar escaneos de seguridad con secureCodeBox
+#
+# Arquitectura:
+# - Un 'stage' (etapa) llamado 'security-scan'.
+# - Dos 'jobs' (trabajos) separados en ese stage:
+#   1. semgrep-scan: Lanza el escaneo de Semgrep (SAST).
+#   2. trivy-scan: Lanza el escaneo de Trivy (Vulnerabilidades).
+#
+# Ambos jobs se ejecutan en paralelo para mayor eficiencia.
+# Si un job falla, el otro puede continuar.
+# -----------------------------------------------------------------
+
 stages:
   - security-scan
 
 variables:
+  # Define el namespace de Kubernetes donde se ejecutan los escaneos
   KUBE_NAMESPACE: "scb"
 
+# --- JOB 1: Escaneo de SEMGREP ---
 semgrep-scan:
-  stage: security-scan
+  stage: security-scan # Se ejecuta en la etapa 'security-scan'
   tags:
-    - k8s-runner
+    - k8s-runner      # Debe coincidir con el tag de tu runner de GitLab
   image:
     name: bitnami/kubectl:latest
     entrypoint: [""]
   only:
-    - main
+    - main            # Se ejecuta solo en la rama 'main'
   script:
-    - echo "¡Corriendo dentro de un pod de Kubernetes!"
-    - echo "Verificando conexion (dentro-del-cluster)..."
+    - echo "--- [Iniciando Job: semgrep-scan] ---"
+    - echo "Verificando conexion con el cluster..."
     - kubectl config get-contexts
-    - echo "Creando (no aplicando) manifiesto de escaneo en sCB..."
-    - kubectl -n $KUBE_NAMESPACE create -f scb-scan.yaml
-    - echo "Escaneo 'Scan' creado en Kubernetes."
-    - echo "Esperando a que el escaneo termine..."
-    - kubectl -n $KUBE_NAMESPACE get scan
-    - echo "Escaneo completado. Desplegando resultados a DefectDojo..."
+    - echo "Creando manifiesto de escaneo de SEMGREP..."
+    - kubectl -n $KUBE_NAMESPACE create -f scb-scan.yaml # Este es tu archivo YAML para Semgrep
+    - echo "Scan de Semgrep creado en Kubernetes."
+    - echo "El escaneo se está ejecutando en el cluster de secureCodeBox."
+    - echo "--- [Finalizando Job: semgrep-scan] ---"
+
+# --- JOB 2: Escaneo de TRIVY ---
+trivy-scan:
+  stage: security-scan # Se ejecuta en la misma etapa 'security-scan'
+  tags:
+    - k8s-runner      # Debe coincidir con el tag de tu runner de GitLab
+  image:
+    name: bitnami/kubectl:latest
+    entrypoint: [""]
+  only:
+    - main            # Se ejecuta solo en la rama 'main'
+  script:
+    - echo "--- [Iniciando Job: trivy-scan] ---"
+    - echo "Verificando conexion con el cluster..."
+    - kubectl config get-contexts
+    - echo "Creando manifiesto de escaneo de TRIVY..."
+    - kubectl -n $KUBE_NAMESPACE create -f scb-trivy-scan.yaml # Este es tu archivo YAML para Trivy
+    - echo "Scan de Trivy creado en Kubernetes."
+    - echo "El escaneo se está ejecutando en el cluster de secureCodeBox."
+    - echo "--- [Finalizando Job: trivy-scan] ---"
