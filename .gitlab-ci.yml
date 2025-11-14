@@ -16,20 +16,11 @@ semgrep-scan:
   only:
     - main
   script:
-<<<<<<< HEAD
-=======
-    
->>>>>>> 82b71982fe4f531ede765a848595e5ea315f6752
     - echo "Verificando conexion con el cluster..."
     - kubectl config get-contexts
     - echo "Creando manifiesto de escaneo de SEMGREP..."
     - kubectl -n $KUBE_NAMESPACE create -f scb-scan.yaml # Tu YAML de Semgrep
     - echo "Scan de Semgrep creado en Kubernetes."
-<<<<<<< HEAD
-=======
-    - echo "El escaneo se está ejecutando en el cluster de secureCodeBox."
-    
->>>>>>> 82b71982fe4f531ede765a848595e5ea315f6752
 
 # --- JOB 2: Escaneo de TRIVY ---
 trivy-scan:
@@ -42,16 +33,11 @@ trivy-scan:
   only:
     - main
   script:
-<<<<<<< HEAD
-=======
-    
->>>>>>> 82b71982fe4f531ede765a848595e5ea315f6752
     - echo "Verificando conexion con el cluster..."
     - kubectl config get-contexts
     - echo "Creando manifiesto de escaneo de TRIVY..."
     - kubectl -n $KUBE_NAMESPACE create -f scb-trivy-scan.yaml # Tu YAML de Trivy
     - echo "Scan de Trivy creado en Kubernetes."
-<<<<<<< HEAD
 
 # --- JOB 3: Escaneo de GITLEAKS (NUEVO) ---
 gitleaks-scan:
@@ -69,7 +55,3 @@ gitleaks-scan:
     - echo "Creando manifiesto de escaneo de GITLEAKS..."
     - kubectl -n $KUBE_NAMESPACE create -f scb-gitleaks-scan.yaml # El nuevo YAML para Gitleaks
     - echo "Scan de Gitleaks creado en Kubernetes."
-=======
-    - echo "El escaneo se está ejecutando en el cluster de secureCodeBox."
-    
->>>>>>> 82b71982fe4f531ede765a848595e5ea315f6752
