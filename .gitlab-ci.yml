@@ -29,14 +29,14 @@ semgrep-scan:
   only:
     - main            # Se ejecuta solo en la rama 'main'
   script:
-    - echo "--- [Iniciando Job: semgrep-scan] ---"
+    
     - echo "Verificando conexion con el cluster..."
     - kubectl config get-contexts
     - echo "Creando manifiesto de escaneo de SEMGREP..."
     - kubectl -n $KUBE_NAMESPACE create -f scb-scan.yaml # Este es tu archivo YAML para Semgrep
     - echo "Scan de Semgrep creado en Kubernetes."
     - echo "El escaneo se está ejecutando en el cluster de secureCodeBox."
-    - echo "--- [Finalizando Job: semgrep-scan] ---"
+    
 
 # --- JOB 2: Escaneo de TRIVY ---
 trivy-scan:
@@ -49,11 +49,11 @@ trivy-scan:
   only:
     - main            # Se ejecuta solo en la rama 'main'
   script:
-    - echo "--- [Iniciando Job: trivy-scan] ---"
+    
     - echo "Verificando conexion con el cluster..."
     - kubectl config get-contexts
     - echo "Creando manifiesto de escaneo de TRIVY..."
     - kubectl -n $KUBE_NAMESPACE create -f scb-trivy-scan.yaml # Este es tu archivo YAML para Trivy
     - echo "Scan de Trivy creado en Kubernetes."
     - echo "El escaneo se está ejecutando en el cluster de secureCodeBox."
-    - echo "--- [Finalizando Job: trivy-scan] ---"
+    
