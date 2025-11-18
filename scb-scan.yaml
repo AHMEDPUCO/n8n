@@ -1,11 +1,11 @@
 apiVersion: execution.securecodebox.io/v1
 kind: Scan
 metadata:
-  name: "semgrep-mi-app"
+  name: "semgrep-mi-app-"
   namespace: scb
   annotations:
     # ------- PRODUCT (Nuevo) -------
-    defectdojo.securecodebox.io/product-name: "Mi App Vulnerable - Semgrep"
+    defectdojo.securecodebox.io/product-name: "Mi App Vulnerable2 - Semgrep2"
     defectdojo.securecodebox.io/product-type-name: "USFQ-Apps"
     defectdojo.securecodebox.io/product-description: |
       Código fuente vulnerable para pruebas automáticas de Semgrep en pipeline DevSecOps.
@@ -17,10 +17,13 @@ metadata:
     defectdojo.securecodebox.io/engagement-version: "v1.0"
     defectdojo.securecodebox.io/engagement-tags: "automated,static-analysis,semgrep"
     defectdojo.securecodebox.io/engagement-deduplicate-on-engagement: "true"
+
     
     # ------- TEST (Nuevo) -------
     defectdojo.securecodebox.io/test-title: "Análisis Semgrep CI"
     defectdojo.securecodebox.io/test-type: "Semgrep JSON Report"
+
+
     
 spec:
   scanType: "semgrep"
