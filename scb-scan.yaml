@@ -1,31 +1,22 @@
 apiVersion: execution.securecodebox.io/v1
 kind: Scan
-metadata: # <-- Falta esta clave
-  generateName: "semgrep-mi-app-vuln-" # Nombre del escaneo en Kubernetes
+metadata:
+  generateName: "semgrep-mi-app-"
   namespace: scb
   annotations:
-    # ------- ANOTACIONES PARA USAR RECURSOS EXISTENTES -------
-    # Usa el ID del Producto existente (reemplaza 9 por el ID real)
-    defectdojo.securecodebox.io/product-id: "9"
-    defectdojo.securecodebox.io/product-type-id: "2"
-    # Usa el ID del Engagement existente (reemplaza 50 por el ID real)
-    defectdojo.securecodebox.io/engagement-id: "50"
-    # Usa el ID del tipo de Test existente (reemplaza 170 por el ID real)
-    defectdojo.securecodebox.io/test-type-id: "170"
-
-    # ------- TEST (Opcional si usas test-type-id, pero puede mantenerse para claridad) -------
-    defectdojo.securecodebox.io/test-title: "Análisis Semgrep CI"
-    # Mantener 'test-type' puede ser redundante si usas 'test-type-id',
-    # pero no debería causar problemas y puede ayudar en la identificación.
-    defectdojo.securecodebox.io/test-type: "Semgrep JSON Report"
-
+    defectdojo.securecodebox.io/product-name: "mi-app-vulnerable1"
+    defectdojo.securecodebox.io/product-type-name: "USFQ-Apps"
+    defectdojo.securecodebox.io/tool-configuration-id: "2"
+    defectdojo.securecodebox.io/product-id: "8"
+    defectdojo.securecodebox.io/engagement-id: "38"
+    defectdojo.securecodebox.io/test-type-id: "170"   # 🔥 Requerido para persistencia
+      
 spec:
   scanType: "semgrep"
   parameters:
-    - "--config=p/ci"   # reglas oficiales CI pipeline
-    - "."               # escanea el repo clonado
+    - "--config=p/ci"
+    - "/src"   # 🔥 Usa el directorio clonado
 
-  # ------- Volumen para clonar el repositorio -------
   volumes:
     - name: source
       emptyDir: {}
@@ -37,13 +28,12 @@ spec:
         - /bin/sh
         - -c
         - |
-          echo "Clonando repositorio para Semgrep..."
-          git clone https://gitlab.com/ahmedpuco03/mi-app-vulnerable.git       /src
+          echo "Clonando repositorio..."
+          git clone https://gitlab.com/ahmedpuco03/mi-app-vulnerable.git /src
       volumeMounts:
         - name: source
           mountPath: /src
 
-  # ------- Montaje del código al escáner -------
   volumeMounts:
     - name: source
-      mountPath: /src
+      mountPath: /src   # 🔥 faltaba esto
