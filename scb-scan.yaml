@@ -1,41 +1,34 @@
 apiVersion: execution.securecodebox.io/v1
 kind: Scan
-metadata:
-  name: "semgrep-mi-app-vuln" # Corregido: nombre válido
+meta
+  name: "semgrep-mi-app-vuln" # Nombre del escaneo en Kubernetes
   namespace: scb
   annotations:
-    # ------- PRODUCT (Nuevo) -------
-    defectdojo.securecodebox.io/product-name: "Mi App Vulnerable2 - Semgrep2"
-    defectdojo.securecodebox.io/product-type-name: "USFQ-Apps"
-    defectdojo.securecodebox.io/product-description: |
-      Código fuente vulnerable para pruebas automáticas de Semgrep en pipeline DevSecOps.
-      Permite validar detección de vulnerabilidades, flujos CI automáticos y correlación en DefectDojo.
-    defectdojo.securecodebox.io/product-tags: "semgrep,devsecops,static-analysis,vulnerable"
-    
-    # ------- ENGAGEMENT (Nuevo) -------
-    defectdojo.securecodebox.io/engagement-name: "Auditoría Semgrep - Automatizada"
-    defectdojo.securecodebox.io/engagement-version: "v1.0"
-    defectdojo.securecodebox.io/engagement-tags: "automated,static-analysis,semgrep"
-    defectdojo.securecodebox.io/engagement-deduplicate-on-engagement: "true"
+    # ------- ANOTACIONES PARA USAR RECURSOS EXISTENTES -------
+    # Usa el ID del Producto existente (reemplaza 9 por el ID real)
+    defectdojo.securecodebox.io/product-id: "9"
+    # Usa el ID del Engagement existente (reemplaza 50 por el ID real)
+    defectdojo.securecodebox.io/engagement-id: "50"
+    # Usa el ID del tipo de Test existente (reemplaza 170 por el ID real)
+    defectdojo.securecodebox.io/test-type-id: "170"
 
-    
-    # ------- TEST (Nuevo) -------
+    # ------- TEST (Opcional si usas test-type-id, pero puede mantenerse para claridad) -------
     defectdojo.securecodebox.io/test-title: "Análisis Semgrep CI"
+    # Mantener 'test-type' puede ser redundante si usas 'test-type-id',
+    # pero no debería causar problemas y puede ayudar en la identificación.
     defectdojo.securecodebox.io/test-type: "Semgrep JSON Report"
 
-
-    
 spec:
   scanType: "semgrep"
   parameters:
     - "--config=p/ci"   # reglas oficiales CI pipeline
     - "."               # escanea el repo clonado
-  
+
   # ------- Volumen para clonar el repositorio -------
   volumes:
     - name: source
       emptyDir: {}
-  
+
   initContainers:
     - name: clone-repo
       image: alpine/git
@@ -44,11 +37,11 @@ spec:
         - -c
         - |
           echo "Clonando repositorio para Semgrep..."
-          git clone https://gitlab.com/ahmedpuco03/mi-app-vulnerable.git     /src
+          git clone https://gitlab.com/ahmedpuco03/mi-app-vulnerable.git       /src
       volumeMounts:
         - name: source
           mountPath: /src
-  
+
   # ------- Montaje del código al escáner -------
   volumeMounts:
     - name: source
