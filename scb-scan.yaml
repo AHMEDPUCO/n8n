@@ -1,7 +1,7 @@
 apiVersion: execution.securecodebox.io/v1
 kind: Scan
 metadata:
-  name: "semgrep-mi-app-"
+  name: "semgrep-mi-app-vuln" # Corregido: nombre válido
   namespace: scb
   annotations:
     # ------- PRODUCT (Nuevo) -------
@@ -44,7 +44,7 @@ spec:
         - -c
         - |
           echo "Clonando repositorio para Semgrep..."
-          git clone https://gitlab.com/ahmedpuco03/mi-app-vulnerable.git   /src
+          git clone https://gitlab.com/ahmedpuco03/mi-app-vulnerable.git     /src
       volumeMounts:
         - name: source
           mountPath: /src
