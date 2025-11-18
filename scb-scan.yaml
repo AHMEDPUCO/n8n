@@ -3,22 +3,14 @@ kind: Scan
 metadata:
   generateName: "semgrep-mi-app-"
   namespace: scb
-  annotations:
-    defectdojo.securecodebox.io/tool-configuration-id: "2"
-    defectdojo.securecodebox.io/product-id: "8"
-    defectdojo.securecodebox.io/engagement-id: "38"
-    defectdojo.securecodebox.io/test-type-id: "170"   # 🔥 Requerido para persistencia
-      
 spec:
   scanType: "semgrep"
   parameters:
     - "--config=p/ci"
-    - "/src"   # 🔥 Usa el directorio clonado
-
+    - "."
   volumes:
     - name: source
       emptyDir: {}
-
   initContainers:
     - name: clone-repo
       image: alpine/git
@@ -31,7 +23,14 @@ spec:
       volumeMounts:
         - name: source
           mountPath: /src
-
   volumeMounts:
     - name: source
-      mountPath: /src   # 🔥 faltaba esto
+      mountPath: /src
+  
+  persistence:
+    defectdojo:
+      productId: 8
+      engagementId: 38
+      testtypeId: 170
+      autoCreateProduct: false
+      autoCreateEngagement: false
