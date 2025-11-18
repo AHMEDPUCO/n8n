@@ -4,17 +4,16 @@ metadata:
   generateName: "semgrep-mi-app-"
   namespace: scb
   annotations:
-    defectdojo.securecodebox.io/tool-configuration-id: "2"
     defectdojo.securecodebox.io/product-id: "8"
-    defectdojo.securecodebox.io/product-type-id: "2"
-    defectdojo.securecodebox.io/engagement-id: "3"
-    defectdojo.securecodebox.io/test-type-id: "170"
-    defectdojo.securecodebox.io/test-title: "Análisis Semgrep CI"
+    defectdojo.securecodebox.io/engagement-id: "38"
+    defectdojo.securecodebox.io/tool-configuration-id: "2"
+    defectdojo.securecodebox.io/test-type-id: "93"
+    defectdojo.securecodebox.io/test-title: "Semgrep CI Scan"
 spec:
-  scanType: "semgrep"
+  scanType: semgrep
   parameters:
     - "--config=p/ci"
-    - "/src"   # 🔥 Usa el directorio clonado
+    - "/src"
 
   volumes:
     - name: source
@@ -27,7 +26,6 @@ spec:
         - /bin/sh
         - -c
         - |
-          echo "Clonando repositorio..."
           git clone https://gitlab.com/ahmedpuco03/mi-app-vulnerable.git /src
       volumeMounts:
         - name: source
@@ -35,4 +33,4 @@ spec:
 
   volumeMounts:
     - name: source
-      mountPath: /src   # 🔥 faltaba esto
+      mountPath: /src
