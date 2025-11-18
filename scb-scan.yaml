@@ -23,32 +23,30 @@ metadata:
     defectdojo.securecodebox.io/test-type: "Semgrep JSON Report"
     
 spec:
-  interval: 24h    # <-- Ejecuta diariamente
-  scanSpec:
-    scanType: "semgrep"
-    parameters:
-      - "--config=p/ci"   # reglas oficiales CI pipeline
-      - "."               # escanea el repo clonado
-    
-    # ------- Volumen para clonar el repositorio -------
-    volumes:
-      - name: source
-        emptyDir: {}
-    
-    initContainers:
-      - name: clone-repo
-        image: alpine/git
-        command:
-          - /bin/sh
-          - -c
-          - |
-            echo "Clonando repositorio para Semgrep..."
-            git clone https://gitlab.com/ahmedpuco03/mi-app-vulnerable.git /src
-        volumeMounts:
-          - name: source
-            mountPath: /src
-    
-    # ------- Montaje del código al escáner -------
-    volumeMounts:
-      - name: source
-        mountPath: /src
+  scanType: "semgrep"
+  parameters:
+    - "--config=p/ci"   # reglas oficiales CI pipeline
+    - "."               # escanea el repo clonado
+  
+  # ------- Volumen para clonar el repositorio -------
+  volumes:
+    - name: source
+      emptyDir: {}
+  
+  initContainers:
+    - name: clone-repo
+      image: alpine/git
+      command:
+        - /bin/sh
+        - -c
+        - |
+          echo "Clonando repositorio para Semgrep..."
+          git clone https://gitlab.com/ahmedpuco03/mi-app-vulnerable.git   /src
+      volumeMounts:
+        - name: source
+          mountPath: /src
+  
+  # ------- Montaje del código al escáner -------
+  volumeMounts:
+    - name: source
+      mountPath: /src
