@@ -7,6 +7,7 @@ metadata: # <-- Falta esta clave
     # ------- ANOTACIONES PARA USAR RECURSOS EXISTENTES -------
     # Usa el ID del Producto existente (reemplaza 9 por el ID real)
     defectdojo.securecodebox.io/product-id: "9"
+    defectdojo.securecodebox.io/product-type-id: "2"
     # Usa el ID del Engagement existente (reemplaza 50 por el ID real)
     defectdojo.securecodebox.io/engagement-id: "50"
     # Usa el ID del tipo de Test existente (reemplaza 170 por el ID real)
