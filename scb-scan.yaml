@@ -1,6 +1,6 @@
 apiVersion: execution.securecodebox.io/v1
 kind: Scan
-meta
+metadata: # <-- Falta esta clave
   name: "semgrep-mi-app-vuln" # Nombre del escaneo en Kubernetes
   namespace: scb
   annotations:
