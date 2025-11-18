@@ -1,39 +1,54 @@
 apiVersion: execution.securecodebox.io/v1
 kind: Scan
 metadata:
-  generateName: "semgrep-mi-app-"
+  name: "semgrep-mi-app"
   namespace: scb
-  # Las anotaciones pueden quedarse, pero el bloque 'persistence'
-  # tendrá prioridad y es más confiable.
   annotations:
-    defectdojo.securecodebox.io/product-id: "8"
-    defectdojo.securecodebox.io/product-name: "mi-app-vulnerable1"
+    # ------- PRODUCT (Nuevo) -------
+    defectdojo.securecodebox.io/product-name: "Mi App Vulnerable - Semgrep"
     defectdojo.securecodebox.io/product-type-name: "USFQ-Apps"
-    defectdojo.securecodebox.io/tool-configuration-id: "2"
-    defectdojo.securecodebox.io/engagement-id: "43"
-    defectdojo.securecodebox.io/engagemente.name: "pruebas_semgrep"
+    defectdojo.securecodebox.io/product-description: |
+      Código fuente vulnerable para pruebas automáticas de Semgrep en pipeline DevSecOps.
+      Permite validar detección de vulnerabilidades, flujos CI automáticos y correlación en DefectDojo.
+    defectdojo.securecodebox.io/product-tags: "semgrep,devsecops,static-analysis,vulnerable"
+    
+    # ------- ENGAGEMENT (Nuevo) -------
+    defectdojo.securecodebox.io/engagement-name: "Auditoría Semgrep - Automatizada"
+    defectdojo.securecodebox.io/engagement-version: "v1.0"
+    defectdojo.securecodebox.io/engagement-tags: "automated,static-analysis,semgrep"
+    defectdojo.securecodebox.io/engagement-deduplicate-on-engagement: "true"
+    
+    # ------- TEST (Nuevo) -------
+    defectdojo.securecodebox.io/test-title: "Análisis Semgrep CI"
     defectdojo.securecodebox.io/test-type: "Semgrep JSON Report"
-
+    
 spec:
-  scanType: "semgrep"
-  parameters:
-    - "--config=p/ci"
-    - "."
-  volumes:
-    - name: source
-      emptyDir: {}
-  initContainers:
-    - name: clone-repo
-      image: alpine/git
-      command:
-        - /bin/sh
-        - -c
-        - |
-          echo "Clonando repositorio..."
-          git clone https://gitlab.com/ahmedpuco03/mi-app-vulnerable.git /src
-      volumeMounts:
-        - name: source
-          mountPath: /src
-  volumeMounts:
-    - name: source
-      mountPath: /src
+  interval: 24h    # <-- Ejecuta diariamente
+  scanSpec:
+    scanType: "semgrep"
+    parameters:
+      - "--config=p/ci"   # reglas oficiales CI pipeline
+      - "."               # escanea el repo clonado
+    
+    # ------- Volumen para clonar el repositorio -------
+    volumes:
+      - name: source
+        emptyDir: {}
+    
+    initContainers:
+      - name: clone-repo
+        image: alpine/git
+        command:
+          - /bin/sh
+          - -c
+          - |
+            echo "Clonando repositorio para Semgrep..."
+            git clone https://gitlab.com/ahmedpuco03/mi-app-vulnerable.git /src
+        volumeMounts:
+          - name: source
+            mountPath: /src
+    
+    # ------- Montaje del código al escáner -------
+    volumeMounts:
+      - name: source
+        mountPath: /src
