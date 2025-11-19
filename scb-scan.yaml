@@ -1,24 +1,32 @@
 apiVersion: execution.securecodebox.io/v1
 kind: Scan
 metadata:
-  generateName: "semgrep-mi-app-"
+  generateName: "semgrep-pruebas-"
   namespace: scb
   annotations:
-    defectdojo.securecodebox.io/product-id: "8"
-    defectdojo.securecodebox.io/engagement-id: "38"
-    defectdojo.securecodebox.io/tool-configuration-id: "2"
-    defectdojo.securecodebox.io/test-type-id: "93"
-    defectdojo.securecodebox.io/test-title: "Semgrep CI Scan"
+    defectdojo.securecodebox.io/product-type-name: "Aplicaciones Internas"
+    defectdojo.securecodebox.io/product-name: "PRUEBAS1"
+    defectdojo.securecodebox.io/product-description: |
+      Sistema destinado para pruebas internas de análisis de vulnerabilidades y validación continua de pipelines de seguridad.
+      Este proyecto sirve para validar integraciones con SecureCodeBox, Semgrep, DefectDojo y flujos CI/CD.
+    defectdojo.securecodebox.io/product-tags: "security-testing,automation,devsecops,internal-app"
+
+    defectdojo.securecodebox.io/engagement-name: "SEMGREP"
+    defectdojo.securecodebox.io/engagement-version: "v1.0.0"
+    defectdojo.securecodebox.io/engagement-tags: "automated,daily"
+    defectdojo.securecodebox.io/engagement-deduplicate-on-engagement: "true"
+
+    defectdojo.securecodebox.io/test-title: "Semgrep - Scan Automatizado"
+    defectdojo.securecodebox.io/test-type: "Semgrep JSON Report"
+
 spec:
-  scanType: semgrep
+  scanType: "semgrep"
   parameters:
     - "--config=p/ci"
     - "/src"
-
   volumes:
     - name: source
       emptyDir: {}
-
   initContainers:
     - name: clone-repo
       image: alpine/git
@@ -30,7 +38,6 @@ spec:
       volumeMounts:
         - name: source
           mountPath: /src
-
   volumeMounts:
     - name: source
       mountPath: /src
