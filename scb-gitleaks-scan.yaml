@@ -5,14 +5,16 @@ metadata:
   namespace: scb
   annotations:
     # --- Configuración de DefectDojo (copiada de tus otros scans) ---
-    defectdojo.securecodebox.io/product-id: "8"
-    defectdojo.securecodebox.io/product-name: "mi-app-vulnerable1"
+    defectdojo.securecodebox.io/product-name: "Mi App Vulnerable2 - Semgrep2"
+    defectdojo.securecodebox.io/engagement-name: "SEMGREP"
     defectdojo.securecodebox.io/product-type-name: "USFQ-Apps"
-    defectdojo.securecodebox.io/tool-configuration-id: "2"
-    defectdojo.securecodebox.io/engagement-id: "43"
-    
+    defectdojo.securecodebox.io/engagement-version: "v1.0.0"
+    defectdojo.securecodebox.io/engagement-tags: "automated,daily"
+    defectdojo.securecodebox.io/engagement-deduplicate-on-engagement: "true"
+
+    defectdojo.securecodebox.io/test-title: "gitleaks - Scan Automatizado"
     # --- Cambios Específicos para Gitleaks ---
-    defectdojo.securecodebox.io/engagement.name: "pruebas_gitleaks" # Nuevo nombre de engagement
+    #defectdojo.securecodebox.io/engagement.name: "pruebas_gitleaks" # Nuevo nombre de engagement
     defectdojo.securecodebox.io/test-type: "Gitleaks Scan"        # ¡Importante! Tipo de Test para Gitleaks
 spec:
   # --- Tipo de Escaneo ---
