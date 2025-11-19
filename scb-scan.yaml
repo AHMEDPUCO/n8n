@@ -4,12 +4,7 @@ metadata:
   generateName: "semgrep-pruebas-"
   namespace: scb
   annotations:
-    defectdojo.securecodebox.io/product-name: "PRUEBAS1"
-    defectdojo.securecodebox.io/product-description: |
-      Sistema destinado para pruebas internas de análisis de vulnerabilidades y validación continua de pipelines de seguridad.
-      Este proyecto sirve para validar integraciones con SecureCodeBox, Semgrep, DefectDojo y flujos CI/CD.
-    defectdojo.securecodebox.io/product-tags: "security-testing,automation,devsecops,internal-app"
-
+    defectdojo.securecodebox.io/product-name: "Mi App Vulnerable2 - Semgrep2"
     defectdojo.securecodebox.io/engagement-name: "SEMGREP"
     defectdojo.securecodebox.io/engagement-version: "v1.0.0"
     defectdojo.securecodebox.io/engagement-tags: "automated,daily"
