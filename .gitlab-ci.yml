@@ -6,8 +6,8 @@ variables:
   KUBE_NAMESPACE: "scb"
 
 # --- JOB 1: Escaneo de SEMGREP ---
-semgrep-scan:
-  stage: security-scan 
+gitleaks-scan:
+  stage: security-scan # Se ejecuta en el mismo stage
   tags:
     - k8s-runner
   image:
@@ -18,6 +18,6 @@ semgrep-scan:
   script:
     - echo "Verificando conexion con el cluster..."
     - kubectl config get-contexts
-    - echo "Creando manifiesto de escaneo de SEMGREP..."
-    - kubectl -n $KUBE_NAMESPACE create -f scb-scan.yaml # Tu YAML de Semgrep
-    - echo "Scan de Semgrep creado en Kubernetes."
+    - echo "Creando manifiesto de escaneo de GITLEAKS..."
+    - kubectl -n $KUBE_NAMESPACE create -f scb-gitleaks-scan.yaml # El nuevo YAML para Gitleaks
+    - echo "Scan de Gitleaks creado en Kubernetes."
