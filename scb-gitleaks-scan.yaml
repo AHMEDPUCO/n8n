@@ -17,6 +17,7 @@ metadata:
     defectdojo.securecodebox.io/persistence-delay-seconds: "12"
     
     # --- Cambios Específicos para Trivy ---
+    defectdojo.securecodebox.io/test-title: "Trivy - Scan Automatizado"
     defectdojo.securecodebox.io/engagement-name: "Escaneos" # Nombre del Engagement
     defectdojo.securecodebox.io/test-type: "Trivy Scan"      # ¡Importante! Tipo de Test para Trivy
 spec:
