@@ -12,16 +12,15 @@ metadata:
     #defectdojo.securecodebox.io/engagement-version: "v1.0.0"
     defectdojo.securecodebox.io/engagement-tags: "automated,daily"
     defectdojo.securecodebox.io/engagement-deduplicate-on-engagement: "true"
-    defectdojo.securecodebox.io/retry: "5"
-    defectdojo.securecodebox.io/retry-delay: "10"
-    defectdojo.securecodebox.io/persistence-delay-seconds: "12"
-    defectdojo.securecodebox.io/engagement-start-date: "2025-11-20"
-    defectdojo.securecodebox.io/engagement-end-date: "2025-12-31"
+    
     
     # --- Cambios Específicos para Trivy ---
     defectdojo.securecodebox.io/test-title: "Trivy - Scan Automatizado"
     defectdojo.securecodebox.io/engagement-name: "Escaneos" # Nombre del Engagement
     defectdojo.securecodebox.io/test-type: "Trivy Scan"      # ¡Importante! Tipo de Test para Trivy
+    defectdojo.securecodebox.io/retry: "5"
+    defectdojo.securecodebox.io/retry-delay: "10"
+    defectdojo.securecodebox.io/persistence-delay-seconds: "12"
 spec:
   # --- Tipo de Escaneo ---
   scanType: "trivy-filesystem" # Usamos trivy-filesystem porque clonamos el repo primero
