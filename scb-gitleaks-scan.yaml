@@ -6,7 +6,6 @@ metadata:
   annotations:
     # --- Configuración de DefectDojo (copiada de tus otros scans) ---
     defectdojo.securecodebox.io/product-name: "Pruebas Funcionales"
-    #defectdojo.securecodebox.io/engagement-name: "Escaneos"
     defectdojo.securecodebox.io/engagement-type: "CI/CD"
     defectdojo.securecodebox.io/product-type-name: "USFQ-Apps"
     defectdojo.securecodebox.io/engagement-version: "v1.0.0"
@@ -15,7 +14,7 @@ metadata:
 
     defectdojo.securecodebox.io/test-title: "gitleaks - Scan Automatizado"
     # --- Cambios Específicos para Gitleaks ---
-    defectdojo.securecodebox.io/engagement.name: "pruebas_gitleaks" # Nuevo nombre de engagement
+    defectdojo.securecodebox.io/engagement-name: "pruebas_gitleaks" # Nuevo nombre de engagement
     defectdojo.securecodebox.io/test-type: "Gitleaks Scan"        # ¡Importante! Tipo de Test para Gitleaks
 spec:
   # --- Tipo de Escaneo ---
