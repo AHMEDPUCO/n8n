@@ -7,6 +7,7 @@ metadata:
     # --- Configuración de DefectDojo (copiada de tus otros scans) ---
     defectdojo.securecodebox.io/product-name: "Mi App Vulnerable2 - Semgrep2"
     defectdojo.securecodebox.io/engagement-name: "gitleaks"
+    defectdojo.securecodebox.io/engagement-type: "CI/CD"
     defectdojo.securecodebox.io/product-type-name: "USFQ-Apps"
     defectdojo.securecodebox.io/engagement-version: "v1.0.0"
     defectdojo.securecodebox.io/engagement-tags: "automated,daily"
