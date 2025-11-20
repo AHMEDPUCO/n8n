@@ -1,27 +1,39 @@
 apiVersion: execution.securecodebox.io/v1
 kind: Scan
 metadata:
-  generateName: "semgrep-pruebas-"
+  generateName: "gitleaks-mi-app-"
   namespace: scb
   annotations:
+    # --- Configuración de DefectDojo (copiada de tus otros scans) ---
     defectdojo.securecodebox.io/product-name: "Pruebas Funcionales"
-    defectdojo.securecodebox.io/engagement-name: "Escaneos"
+    defectdojo.securecodebox.io/engagement-type: "CI/CD"
     defectdojo.securecodebox.io/product-type-name: "USFQ-Apps"
     defectdojo.securecodebox.io/engagement-version: "v1.0.0"
     defectdojo.securecodebox.io/engagement-tags: "automated,daily"
     defectdojo.securecodebox.io/engagement-deduplicate-on-engagement: "true"
 
-    defectdojo.securecodebox.io/test-title: "Semgrep - Scan Automatizado"
-    defectdojo.securecodebox.io/test-type: "Semgrep JSON Report"
-
+    defectdojo.securecodebox.io/test-title: "gitleaks - Scan Automatizado"
+    # --- Cambios Específicos para Gitleaks ---
+    defectdojo.securecodebox.io/engagement-name: "Escaneos" # Nuevo nombre de engagement
+    defectdojo.securecodebox.io/test-type: "Gitleaks Scan"        # ¡Importante! Tipo de Test para Gitleaks
 spec:
-  scanType: "semgrep"
+  # --- Tipo de Escaneo ---
+  scanType: "gitleaks"
+  
+  # --- Parámetros de Gitleaks ---
   parameters:
-    - "--config=p/ci"
-    - "/src"
+    - "detect"      # Comando para detectar secretos
+    - "--source"    # Flag para indicar la carpeta
+    - "/src/"       # Carpeta donde clonamos el repo
+  
+  # --- Definición del Volumen ---
+  # (Idéntico a tus otros escaneos)
   volumes:
     - name: source
       emptyDir: {}
+  
+  # --- Contenedor de Inicialización (Git Clone) ---
+  # (Idéntico a tus otros escaneos)
   initContainers:
     - name: clone-repo
       image: alpine/git
@@ -29,10 +41,14 @@ spec:
         - /bin/sh
         - -c
         - |
+          echo "Clonando repositorio para Gitleaks..."
           git clone https://gitlab.com/ahmedpuco03/mi-app-vulnerable.git /src
       volumeMounts:
         - name: source
           mountPath: /src
+          
+  # --- Montura del Volumen en el Escáner ---
+  # (Idéntico a tus otros escaneos)
   volumeMounts:
     - name: source
       mountPath: /src
