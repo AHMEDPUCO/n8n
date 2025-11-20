@@ -5,8 +5,8 @@ metadata:
   namespace: scb
   annotations:
     # --- Configuración de DefectDojo (copiada de tus otros scans) ---
-    defectdojo.securecodebox.io/product-name: "Mi App Vulnerable2 - Semgrep2"
-    defectdojo.securecodebox.io/engagement-name: "gitleaks"
+    defectdojo.securecodebox.io/product-name: "Pruebas Funcionales"
+    defectdojo.securecodebox.io/engagement-name: "Escaneos"
     defectdojo.securecodebox.io/engagement-type: "CI/CD"
     defectdojo.securecodebox.io/product-type-name: "USFQ-Apps"
     defectdojo.securecodebox.io/engagement-version: "v1.0.0"
