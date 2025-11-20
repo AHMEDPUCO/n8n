@@ -7,14 +7,16 @@ metadata:
     # --- Configuración de DefectDojo ---
     # Estas IDs deben coincidir con tu instancia de DefectDojo
     defectdojo.securecodebox.io/product-name: "Pruebas Funcionales"
-    defectdojo.securecodebox.io/engagement-type: "CI/CD"
+    #defectdojo.securecodebox.io/engagement-type: "CI/CD"
     defectdojo.securecodebox.io/product-type-name: "USFQ-Apps"
-    defectdojo.securecodebox.io/engagement-version: "v1.0.0"
+    #defectdojo.securecodebox.io/engagement-version: "v1.0.0"
     defectdojo.securecodebox.io/engagement-tags: "automated,daily"
     defectdojo.securecodebox.io/engagement-deduplicate-on-engagement: "true"
     defectdojo.securecodebox.io/retry: "5"
     defectdojo.securecodebox.io/retry-delay: "10"
     defectdojo.securecodebox.io/persistence-delay-seconds: "12"
+    defectdojo.securecodebox.io/engagement-start-date: "2025-11-20"
+    defectdojo.securecodebox.io/engagement-end-date: "2025-12-31"
     
     # --- Cambios Específicos para Trivy ---
     defectdojo.securecodebox.io/test-title: "Trivy - Scan Automatizado"
