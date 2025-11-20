@@ -12,6 +12,9 @@ metadata:
     defectdojo.securecodebox.io/engagement-version: "v1.0.0"
     defectdojo.securecodebox.io/engagement-tags: "automated,daily"
     defectdojo.securecodebox.io/engagement-deduplicate-on-engagement: "true"
+    defectdojo.securecodebox.io/retry: "5"
+    defectdojo.securecodebox.io/retry-delay: "10"
+    defectdojo.securecodebox.io/persistence-delay-seconds: "12"
     
     # --- Cambios Específicos para Trivy ---
     defectdojo.securecodebox.io/engagement-name: "pruebas_trivy" # Nombre del Engagement
