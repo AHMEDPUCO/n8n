@@ -21,6 +21,8 @@ metadata:
     defectdojo.securecodebox.io/retry: "5"
     defectdojo.securecodebox.io/retry-delay: "10"
     defectdojo.securecodebox.io/persistence-delay-seconds: "12"
+    defectdojo.securecodebox.io/send-product-name: "true"
+
 spec:
   # --- Tipo de Escaneo ---
   scanType: "trivy-filesystem" # Usamos trivy-filesystem porque clonamos el repo primero
