@@ -22,6 +22,8 @@ metadata:
     defectdojo.securecodebox.io/retry-delay: "10"
     defectdojo.securecodebox.io/persistence-delay-seconds: "12"
     defectdojo.securecodebox.io/send-product-name: "true"
+    defectdojo.securecodebox.io/auto-create: "true"
+    defectdojo.securecodebox.io/send-engagement-name: "true"
 
 spec:
   # --- Tipo de Escaneo ---
