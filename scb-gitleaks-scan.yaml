@@ -24,6 +24,8 @@ metadata:
     defectdojo.securecodebox.io/send-product-name: "true"
     defectdojo.securecodebox.io/auto-create: "true"
     defectdojo.securecodebox.io/send-engagement-name: "true"
+    defectdojo.securecodebox.io/force-new-scan: "true"
+
 
 spec:
   # --- Tipo de Escaneo ---
