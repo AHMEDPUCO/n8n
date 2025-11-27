@@ -6,7 +6,7 @@ metadata:
   annotations:
     # --- Configuración de DefectDojo ---
     # Estas IDs deben coincidir con tu instancia de DefectDojo
-    defectdojo.securecodebox.io/product-name: "Pruebas Funcionales4"
+    defectdojo.securecodebox.io/product-name: "Pruebas Funcionales2"
     defectdojo.securecodebox.io/engagement-type: "CI/CD"
     defectdojo.securecodebox.io/product-type-name: "USFQ-Apps"
     defectdojo.securecodebox.io/engagement-version: "v1.0.0"
