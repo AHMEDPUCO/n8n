@@ -12,6 +12,7 @@ metadata:
     defectdojo.securecodebox.io/engagement-version: "v1.0.0"
     defectdojo.securecodebox.io/engagement-tags: "automated,daily"
     defectdojo.securecodebox.io/engagement-deduplicate-on-engagement: "true"
+    defectdojo.securecodebox.io/environment: "Development"
     
     
     # --- Cambios Específicos para Trivy ---
