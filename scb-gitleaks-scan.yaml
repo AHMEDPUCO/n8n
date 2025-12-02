@@ -22,7 +22,7 @@ metadata:
     defectdojo.securecodebox.io/retry: "5"
     defectdojo.securecodebox.io/retry-delay: "10"
     defectdojo.securecodebox.io/persistence-delay-seconds: "12"
-    defectdojo.securecodebox.io/send-product-name: "true"
+    defectdojo.securecodebox.io/send-product: "true"
     defectdojo.securecodebox.io/auto-create: "true"
     defectdojo.securecodebox.io/send-engagement-name: "true"
     defectdojo.securecodebox.io/force-new-scan: "false"
@@ -38,13 +38,6 @@ spec:
   # Puedes añadir más parámetros de trivy aquí, ej: "--severity HIGH,CRITICAL"
   parameters:
     - "." 
-  env:
-    - name: "DEFECTDOJO_PRODUCT_NAME"
-      value: "Pruebas Funcionales2"
-    - name: "DEFECTDOJO_SEND_PRODUCT_NAME"
-      value: "true"
-    - name: "product_name"
-      value: "Pruebas Funcionales2"
   
   # --- Definición del Volumen ---
   # Esto es idéntico a tu ejemplo de semgrep
