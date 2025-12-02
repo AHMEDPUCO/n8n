@@ -13,6 +13,8 @@ metadata:
     defectdojo.securecodebox.io/engagement-tags: "automated,daily"
     defectdojo.securecodebox.io/engagement-deduplicate-on-engagement: "true"
     defectdojo.securecodebox.io/environment: "Development"
+    defectdojo.securecodebox.io/engagement-start-date: "2025-12-02"
+    defectdojo.securecodebox.io/engagement-end-date: "2026-01-01"
     
     
     # --- Cambios Específicos para Trivy ---
