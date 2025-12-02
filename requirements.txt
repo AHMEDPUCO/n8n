@@ -1,0 +1,4 @@
+requests==2.18.0
+Flask==0.12
+PyJWT==1.5.0
+urllib3==1.21
