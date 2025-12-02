@@ -15,6 +15,8 @@ metadata:
     defectdojo.securecodebox.io/environment: "Development"
     defectdojo.securecodebox.io/engagement-start-date: "2025-12-02"
     defectdojo.securecodebox.io/engagement-end-date: "2026-01-01"
+    defectdojo.securecodebox.io/send-product-type-name: "true"
+
     
     
     # --- Cambios Específicos para Trivy ---
