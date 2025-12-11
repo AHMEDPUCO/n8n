@@ -11,7 +11,7 @@ metadata:
     defectdojo.securecodebox.io/engagement-type: "CI/CD"
     #defectdojo.securecodebox.io/engagement-version: "v1.0.0"
     defectdojo.securecodebox.io/engagement-tags: "automated,daily"
-    #defectdojo.securecodebox.io/engagement-deduplicate-on-engagement: "true"
+    defectdojo.securecodebox.io/engagement-deduplicate-on-engagement: "true"
     defectdojo.securecodebox.io/environment: "Development"
 
     #defectdojo.securecodebox.io/send-product-type-name: "true"
@@ -41,7 +41,7 @@ spec:
   # Escanea el directorio montado en /src
   # Puedes añadir más parámetros de trivy aquí, ej: "--severity HIGH,CRITICAL"
   parameters:
-    - "." 
+    - "/src" 
   
   # --- Definición del Volumen ---
   # Esto es idéntico a tu ejemplo de semgrep
