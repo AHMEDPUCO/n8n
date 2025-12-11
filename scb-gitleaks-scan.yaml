@@ -1,10 +1,71 @@
 apiVersion: execution.securecodebox.io/v1
 kind: Scan
 metadata:
-  name: "nmap-prueba-simple"
+  generateName: "trivy-mi-app-"
   namespace: scb
+  annotations:
+    # --- Configuración de DefectDojo ---
+    # Estas IDs deben coincidir con tu instancia de DefectDojo
+    defectdojo.securecodebox.io/product-type-name: "USFQ-Apps"
+    defectdojo.securecodebox.io/product-name: "Pruebas Funcionales2"
+    defectdojo.securecodebox.io/engagement-type: "CI/CD"
+    defectdojo.securecodebox.io/engagement-name: "EscaneosTriv" # Nombre del Engagement
+    defectdojo.securecodebox.io/engagement-version: "v2.0.0"
+    defectdojo.securecodebox.io/engagement-tags: "automated,daily"
+    defectdojo.securecodebox.io/engagement-deduplicate-on-engagement: "true"
+    defectdojo.securecodebox.io/environment: "Development"
+
+    #defectdojo.securecodebox.io/send-product-type-name: "true"
+
+    
+    
+    # --- Cambios Específicos para Trivy ---
+    defectdojo.securecodebox.io/test-title: "Trivy - Scan Automatizado"
+    defectdojo.securecodebox.io/test-type: "Trivy Scan"      # ¡Importante! Tipo de Test para Trivy
+  
+   # defectdojo.securecodebox.io/send-product: "true"
+    defectdojo.securecodebox.io/auto-create: "true"
+    #defectdojo.securecodebox.io/send-engagement-name: "true"
+    defectdojo.securecodebox.io/force-new-scan: "false"
+    defectdojo.securecodebox.io/reimport: "true"
+
+    defectdojo.securecodebox.io/retry: "5"
+    defectdojo.securecodebox.io/retry-delay: "10"
+    defectdojo.securecodebox.io/persistence-delay-seconds: "12"
+
 spec:
-  scanType: "nmap"
+  # --- Tipo de Escaneo ---
+  scanType: "trivy-filesystem" # Usamos trivy-filesystem porque clonamos el repo primero
+  
+  # --- Parámetros de Trivy ---
+  # Escanea el directorio montado en /src
+  # Puedes añadir más parámetros de trivy aquí, ej: "--severity HIGH,CRITICAL"
   parameters:
-    - "-sV"
-    - "scanme.nmap.org"
+    - "/src" 
+  
+  # --- Definición del Volumen ---
+  # Esto es idéntico a tu ejemplo de semgrep
+  volumes:
+    - name: source
+      emptyDir: {}
+  
+  # --- Contenedor de Inicialización (Git Clone) ---
+  # Clona tu repositorio en el volumen 'source'
+  initContainers:
+    - name: clone-repo
+      image: alpine/git
+      command:
+        - /bin/sh
+        - -c
+        - |
+          echo "Clonando repositorio para Trivy..."
+          git clone https://gitlab.com/ahmedpuco03/mi-app-vulnerable.git /src
+      volumeMounts:
+        - name: source
+          mountPath: /src
+          
+  # --- Montura del Volumen en el Escáner ---
+  # El escáner de Trivy montará el volumen 'source' en /src
+  volumeMounts:
+    - name: source
+      mountPath: /src
