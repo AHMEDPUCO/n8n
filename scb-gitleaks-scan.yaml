@@ -10,7 +10,7 @@ metadata:
     defectdojo.securecodebox.io/product-name: "Pruebas Funcionales2"
     defectdojo.securecodebox.io/engagement-type: "CI/CD"
     defectdojo.securecodebox.io/engagement-name: "EscaneosTriv" # Nombre del Engagement
-    defectdojo.securecodebox.io/engagement-version: "v2.0.0"
+    defectdojo.securecodebox.io/engagement-version: "v2.0.1"
     defectdojo.securecodebox.io/engagement-tags: "automated,daily"
     defectdojo.securecodebox.io/engagement-deduplicate-on-engagement: "true"
     defectdojo.securecodebox.io/environment: "Development"
