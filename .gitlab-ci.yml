@@ -1,23 +1,22 @@
 stages:
   - security-scan
-
-variables:
-  # Define el namespace de Kubernetes donde se ejecutan los escaneos
-  KUBE_NAMESPACE: "scb"
-
-# --- JOB 1: Escaneo de SEMGREP ---
-gitleaks-scan:
-  stage: security-scan # Se ejecuta en el mismo stage
+n8n-devsecops-trigger:
+  stage: security-scan
+  image: alpine:latest
   tags:
     - k8s-runner
-  image:
-    name: bitnami/kubectl:latest
-    entrypoint: [""]
   only:
-    - main
+    - pushes
   script:
-    - echo "Verificando conexion con el cluster..."
-    - kubectl config get-contexts
-    - echo "Creando manifiesto de escaneo de GITLEAKS..."
-    - kubectl -n $KUBE_NAMESPACE create -f scb-gitleaks-scan.yaml # El nuevo YAML para Gitleaks
-    - echo "Scan de Gitleaks creado en Kubernetes."
+    - apk add --no-cache curl
+    - |
+      curl -sS -X POST "$N8N_WEBHOOK_URL" \
+        -H "Content-Type: application/json" \
+        -d '{
+          "event":"push",
+          "project":"'"$CI_PROJECT_PATH"'",
+          "commit":"'"$CI_COMMIT_SHA"'",
+          "branch":"'"$CI_COMMIT_REF_NAME"'",
+          "repo_http":"'"$CI_PROJECT_URL"'",
+          "zap_target_url":"'"$ZAP_TARGET_URL"'"
+        }'
