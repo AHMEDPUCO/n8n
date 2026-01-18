@@ -12,7 +12,7 @@ app = Flask(__name__)
 def run():
     cmd = request.args.get("cmd")
     os.system(cmd)  # ❌ Semgrep: command-injection
-    return "ok"
+    return "okay"
 
 # 2️⃣ Command Injection (subprocess + shell=True)
 @app.route("/exec")
