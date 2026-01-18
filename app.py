@@ -19,7 +19,7 @@ def vulnerable_exec(command):
 
 
 def another_vulnerable_call(request):
-    # ¡Vulnerabilidad! Inyección por shell=True.
+    # ¡Vulnerabilidad! Inyección por shell=Tr
     cmd = request.args.get("cmd")
     subprocess.run(cmd, shell=True)
 
