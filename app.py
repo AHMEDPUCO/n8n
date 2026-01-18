@@ -1,36 +1,42 @@
 # app.py
 import os
 import subprocess
-import requests
+import pickle
+import yaml
+from flask import Flask, request
 
-# --- Credenciales expustas (falsas, pero triggerea Gitleaks) ---
-AWS_ACCESS_KEY_ID = "AKIAFAKEKEY1234567890"
-AWS_SECRET_ACCESS_KEY = "f4k3s3cr3tKeyTest987654321"
-DB_PASSWORD = "my_db_password_123"
-API_TOKEN = "ghp_FAKEPERSONALTOKEN123456789abcd"
+app = Flask(__name__)
 
-# Dependencia vulnerable intencional
-# (requests<2.20 tiene vulnerabilidades CVE)
-import requests
-
-def vulnerable_exec(command):
-    # ¡Vulnerabilidad! Semgrep debería detectar esto.
-    os.system(command)
-
-
-def another_vulnerable_call(request):
-    # ¡Vulnerabilidad! Inyección por shell=Tr
+# 1️⃣ Command Injection (os.system)
+@app.route("/run")
+def run():
     cmd = request.args.get("cmd")
-    subprocess.run(cmd, shell=True)
+    os.system(cmd)  # ❌ Semgrep: command-injection
+    return "ok"
 
+# 2️⃣ Command Injection (subprocess + shell=True)
+@app.route("/exec")
+def exec_cmd():
+    cmd = request.args.get("cmd")
+    subprocess.run(cmd, shell=True)  # ❌ Semgrep: shell injection
+    return "done"
 
-# Otra vulnerabilidad: descarga insegura (HTTP sin TLS)
-def insecure_download():
-    r = requests.get("http://insecure-domain.test/data.txt")
-    print(r.text)
+# 3️⃣ Insecure deserialization (pickle)
+@app.route("/load")
+def load():
+    data = request.args.get("data").encode()
+    pickle.loads(data)  # ❌ Semgrep: insecure deserialization
+    return "loaded"
 
+# 4️⃣ Unsafe YAML load
+@app.route("/yaml")
+def load_yaml():
+    content = request.args.get("y")
+    yaml.load(content, Loader=yaml.Loader)  # ❌ Semgrep: unsafe yaml load
+    return "yaml loaded"
 
-print("Archivo vulnerable de prueba")
-print("Hola mundoddjjjdd")
-print("fdd")
-print("Funciondamiento")
+# 5️⃣ Hardcoded secret
+API_KEY = "sk_test_1234567890abcdef"  # ❌ Semgrep: hardcoded secret
+
+if __name__ == "__main__":
+    app.run(debug=True)
