@@ -3,7 +3,7 @@ import os
 import subprocess
 import requests
 
-# --- Credenciales expuestas (falsas, pero triggerea Gitleaks) ---
+# --- Credenciales expustas (falsas, pero triggerea Gitleaks) ---
 AWS_ACCESS_KEY_ID = "AKIAFAKEKEY1234567890"
 AWS_SECRET_ACCESS_KEY = "f4k3s3cr3tKeyTest987654321"
 DB_PASSWORD = "my_db_password_123"
