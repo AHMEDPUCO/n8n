@@ -3,8 +3,6 @@ stages:
 n8n-devsecops-trigger:
   stage: security-scan
   image: alpine:latest
-  tags:
-    - k8s-runner
   only:
     - pushes
   script:
