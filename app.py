@@ -7,7 +7,7 @@ from flask import Flask, request
 
 app = Flask(__name__)
 
-# 1️⃣ Command Injection (os.system)
+# 1️⃣ Command Injection_fff (os.system)
 @app.route("/run")
 def run():
     cmd = request.args.get("cmd")
