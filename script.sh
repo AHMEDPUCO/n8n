@@ -1,2 +1,2 @@
-# Hardcoded credentials
+# Hardcoded credentifdfdals
 DB_PASS="root:passworfdfdfdfdfdd123"
