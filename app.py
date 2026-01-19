@@ -18,7 +18,7 @@ def run():
 @app.route("/exec")
 def exec_cmd():
     cmd = request.args.get("cmd")
-    subprocess.run(cmd, shell=True)  # ❌ Semgrep: shell injection
+    subprocess.run(cmd, shell=True)  # ❌ Semgrep: shel injection
     return "done"
 
 # 3️⃣ Insecure deserialization (pickle)
