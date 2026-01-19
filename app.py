@@ -32,7 +32,7 @@ def load():
 @app.route("/yaml")
 def load_yaml():
     content = request.args.get("y")
-    yaml.load(content, Loader=yaml.Loader)  # ❌ Semgrep: unsafe yaml load
+    yaml.load(content, Loader=yaml.Loader)  # ❌ Semgrep: unsafe yaml loadhghghghg
     return "yaml loaded"
 
 # 5️⃣ Hardcoded secret
