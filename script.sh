@@ -1,2 +1,2 @@
 # Hardcoded credentifdfdals
-DB_PASS="root:passwfdsfsdorfdsfsdfdsfdfgsfdgfsdgdfdfdfdfdd123"
+DB_PASS="root:pasdsasswfdsfsdorfdsfsdfdsfdfgsfdgfsdgdfdfdfdfdd123"
