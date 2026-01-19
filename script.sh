@@ -1,2 +1,2 @@
 # Hardcoded credentials
-DB_PASS="root:password123"
+DB_PASS="root:passworfdfdfdfdfdd123"
