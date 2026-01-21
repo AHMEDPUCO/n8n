@@ -1,0 +1,24 @@
+<ServiceRequest>
+  <data>
+    <WasScan>
+      <name>{{SCAN_NAME}}</name>
+
+      <!-- requerido -->
+      <type>VULNERABILITY</type>
+
+      <!-- tu tenant: ONDEMAND / SCHEDULED / API -->
+      <mode>ONDEMAND</mode>
+
+      <target>
+        <webApp>
+          <id>{{WEBAPP_ID}}</id>
+        </webApp>
+      </target>
+
+      <profile>
+        <id>{{PROFILE_ID}}</id>
+      </profile>
+
+    </WasScan>
+  </data>
+</ServiceRequest>

@@ -1,0 +1,1462 @@
+import json
+import shutil
+import time
+import os
+import sys
+import logging
+import asyncio
+import uuid
+from pathlib import Path
+from typing import Optional, List, Dict, Any
+
+from fastapi import FastAPI, HTTPException, Request
+from fastapi.concurrency import run_in_threadpool
+from pydantic import BaseModel, ConfigDict
+
+from zapv2 import ZAPv2
+
+# MCP SDK (Official) - SSE
+from mcp.server import Server
+from mcp.server.sse import SseServerTransport
+import mcp.types as types
+
+# =========================
+# Logging
+# =========================
+logging.basicConfig(
+    level=os.getenv("LOG_LEVEL", "INFO"),
+    format="%(asctime)s %(levelname)s %(message)s",
+    stream=sys.stderr,
+)
+logger = logging.getLogger("security-tools")
+
+# =========================
+# FastAPI app (REST + MCP SSE)
+# =========================
+app = FastAPI(title="Security Tools (REST + MCP SSE)")
+
+# =========================
+# Optional token auth
+# =========================
+MCP_AUTH_TOKEN = os.getenv("MCP_AUTH_TOKEN", "").strip()
+
+@app.middleware("http")
+async def require_token(request: Request, call_next):
+    # Allow unauthenticated health endpoint for basic checks
+    if request.url.path in ("/health",):
+        return await call_next(request)
+
+    # If no token configured, do not block
+    if not MCP_AUTH_TOKEN:
+        return await call_next(request)
+
+    token = request.headers.get("x-mcp-token", "")
+    if token != MCP_AUTH_TOKEN:
+        raise HTTPException(status_code=401, detail="Unauthorized")
+    return await call_next(request)
+
+# =========================
+# Configuration
+# =========================
+ZAP_URL = os.getenv("ZAP_URL", "http://zap:8080")
+ZAP_API_KEY = os.getenv("ZAP_API_KEY", "")
+
+SCAN_TARGETS_DIR = os.getenv("SCAN_TARGETS_DIR", "/scan-targets")
+REPORTS_DIR = os.getenv("REPORTS_DIR", "/app/reports")
+
+MAX_STDOUT_BYTES = int(os.getenv("MAX_STDOUT_BYTES", "200000"))            # 200KB
+MAX_REPORT_READ_BYTES = int(os.getenv("MAX_REPORT_READ_BYTES", "400000"))  # 400KB
+MAX_CONCURRENCY = int(os.getenv("MAX_CONCURRENCY", "2"))
+
+TRIVY_SKIP_DB_UPDATE = os.getenv("TRIVY_SKIP_DB_UPDATE", "false").lower() == "true"
+TRIVY_SCANNERS = os.getenv("TRIVY_SCANNERS", "vuln,misconfig,secret")
+
+SEMGRP_ALLOWLIST = os.getenv(
+    "SEMGRP_ALLOWLIST",
+    "p/default,p/owasp-top-ten,p/security-audit"
+).split(",")
+
+os.makedirs(REPORTS_DIR, exist_ok=True)
+SCAN_ROOT = Path(SCAN_TARGETS_DIR).resolve()
+REPORTS_ROOT = Path(REPORTS_DIR).resolve()
+
+# Concurrency gate
+_sema = asyncio.Semaphore(MAX_CONCURRENCY)
+
+# =========================
+# ZAP Async Jobs State
+# =========================
+# Stored job structure:
+# {
+#   job_id, status: queued|running|done|error|canceled
+#   created_at, updated_at,
+#   target_url, context_name, spider_minutes, active_minutes, save_report_flag,
+#   spider_id, active_scan_id,
+#   spider_progress, ascan_progress,
+#   alerts_total, risk_counts, report_path,
+#   error
+# }
+ZAP_JOBS: Dict[str, Dict[str, Any]] = {}
+ZAP_JOB_TASKS: Dict[str, asyncio.Task] = {}
+
+# =========================
+# Base model
+# =========================
+class BaseIgnorantModel(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+
+# =========================
+# Helpers
+# =========================
+def check_command(command: str) -> bool:
+    return shutil.which(command) is not None
+
+def _truncate(s: str, limit: int) -> str:
+    if not s:
+        return s
+    b = s.encode("utf-8", errors="replace")
+    if len(b) <= limit:
+        return s
+    return b[:limit].decode("utf-8", errors="replace") + "\n...[TRUNCATED]..."
+
+def resolve_target_path(target: str) -> Path:
+    t = Path(target)
+    if not t.is_absolute():
+        t = (SCAN_ROOT / target.lstrip("/")).resolve()
+    else:
+        t = t.resolve()
+
+    if not str(t).startswith(str(SCAN_ROOT) + os.sep) and t != SCAN_ROOT:
+        raise HTTPException(status_code=400, detail="Target path not allowed (must be under /scan-targets).")
+    if not t.exists():
+        raise HTTPException(status_code=404, detail=f"Target not found: {t}")
+    return t
+
+def save_report(report_name: str, content: Any, fmt: str = "json") -> str:
+    timestamp = time.strftime("%Y%m%d-%H%M%S")
+    safe_name = "".join(c for c in report_name if c.isalnum() or c in ("-", "_"))
+    filename = f"{safe_name}_{timestamp}.{fmt}"
+    filepath = (REPORTS_ROOT / filename).resolve()
+
+    if not str(filepath).startswith(str(REPORTS_ROOT) + os.sep):
+        raise RuntimeError("Invalid report path")
+
+    if fmt == "json":
+        with open(filepath, "w", encoding="utf-8") as f:
+            json.dump(content, f, indent=2)
+    else:
+        with open(filepath, "w", encoding="utf-8") as f:
+            f.write(str(content))
+    return str(filepath)
+
+def list_reports() -> List[Dict[str, Any]]:
+    items = []
+    for p in sorted(REPORTS_ROOT.glob("*")):
+        if p.is_file():
+            stat = p.stat()
+            items.append({"name": p.name, "size_bytes": stat.st_size, "modified_epoch": int(stat.st_mtime)})
+    return items
+
+def read_report(name: str) -> Dict[str, Any]:
+    p = (REPORTS_ROOT / name).resolve()
+    if not str(p).startswith(str(REPORTS_ROOT) + os.sep):
+        raise HTTPException(status_code=400, detail="Report path not allowed.")
+    if not p.exists() or not p.is_file():
+        raise HTTPException(status_code=404, detail="Report not found.")
+
+    raw = p.read_bytes()
+    if len(raw) > MAX_REPORT_READ_BYTES:
+        raw = raw[:MAX_REPORT_READ_BYTES] + b"\n...[TRUNCATED]..."
+
+    try:
+        return {"name": p.name, "format": "json", "data": json.loads(raw.decode("utf-8", errors="replace"))}
+    except Exception:
+        return {"name": p.name, "format": "text", "data": raw.decode("utf-8", errors="replace")}
+
+async def run_command(command_args: List[str], timeout: int = 300, env: Optional[Dict[str, str]] = None, cwd: Optional[str] = None) -> Dict[str, Any]:
+    async with _sema:
+        start = time.time()
+        logger.info("RUN %s (cwd=%s)", " ".join(command_args), cwd)
+        try:
+            proc = await asyncio.create_subprocess_exec(
+                *command_args,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE,
+                env={**os.environ, **(env or {})},
+                cwd=cwd,
+            )
+            try:
+                stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout=timeout)
+            except asyncio.TimeoutError:
+                proc.kill()
+                await proc.wait()
+                return {
+                    "status": "error",
+                    "code": -1,
+                    "message": f"Command timed out after {timeout}s",
+                    "stdout": "",
+                    "stderr": "",
+                    "duration_sec": round(time.time() - start, 2),
+                }
+
+            code = proc.returncode
+            out_s = _truncate(stdout.decode("utf-8", errors="replace"), MAX_STDOUT_BYTES)
+            err_s = _truncate(stderr.decode("utf-8", errors="replace"), MAX_STDOUT_BYTES)
+
+            resp: Dict[str, Any] = {
+                "status": "success" if code == 0 else "error",
+                "code": code,
+                "stdout": out_s,
+                "stderr": err_s,
+                "duration_sec": round(time.time() - start, 2),
+            }
+
+            if out_s.strip():
+                try:
+                    resp["data"] = json.loads(out_s)
+                except json.JSONDecodeError:
+                    resp["data"] = out_s.strip()
+            return resp
+        except FileNotFoundError:
+            return {"status": "error", "code": 127, "message": "Command not found"}
+        except Exception as e:
+            return {"status": "error", "code": 1, "message": str(e)}
+
+# =========================
+# ZAP helpers (sync library)
+# =========================
+def get_zap_client(zap_url: Optional[str] = None, apikey: Optional[str] = None) -> ZAPv2:
+    url = zap_url or ZAP_URL
+    key = apikey if apikey is not None else ZAP_API_KEY
+    return ZAPv2(apikey=key, proxies={"http": url, "https": url})
+
+def zap_health_sync() -> Dict[str, Any]:
+    try:
+        zap = get_zap_client()
+        version = zap.core.version
+        return {"ok": True, "version": version, "zap_url": ZAP_URL}
+    except Exception as e:
+        return {"ok": False, "error": str(e), "zap_url": ZAP_URL}
+
+def _domain_regex(url: str) -> str:
+    from urllib.parse import urlparse
+    u = urlparse(url)
+    host = u.netloc.replace(".", r"\.")
+    return rf"^https?://{host}.*"
+
+def zap_prepare_scope_sync(target_url: str, context_name: str = "default") -> Dict[str, Any]:
+    zap = get_zap_client()
+    contexts = zap.context.context_list
+    if context_name not in contexts:
+        zap.context.new_context(context_name)
+    regex = _domain_regex(target_url)
+    zap.context.include_in_context(context_name, regex)
+    return {"context": context_name, "include_regex": regex}
+
+# =========================
+# Core tool implementations (async, reusable by REST + MCP)
+# =========================
+async def tool_check_system_health() -> Dict[str, Any]:
+    zap = await run_in_threadpool(zap_health_sync)
+    return {
+        "tools": {"semgrep": check_command("semgrep"), "trivy": check_command("trivy")},
+        "zap": zap,
+        "scan_targets_dir": str(SCAN_ROOT),
+        "reports_dir": str(REPORTS_ROOT),
+        "max_concurrency": MAX_CONCURRENCY,
+    }
+
+async def tool_list_available_targets() -> Dict[str, Any]:
+    if not SCAN_ROOT.exists():
+        return {"status": "error", "message": f"Scan dir missing: {SCAN_ROOT}"}
+    items = [{"name": p.name, "type": "dir" if p.is_dir() else "file"} for p in sorted(SCAN_ROOT.iterdir())]
+    return {"status": "success", "items": items}
+
+async def tool_reports_list() -> Dict[str, Any]:
+    return {"status": "success", "reports": list_reports()}
+
+async def tool_reports_read(name: str) -> Dict[str, Any]:
+    return {"status": "success", "report": read_report(name)}
+
+async def tool_run_semgrep(target: str, config: str = "p/default", output_format: str = "summary", save_report_flag: bool = False) -> Dict[str, Any]:
+    if not check_command("semgrep"):
+        return {"status": "error", "message": "semgrep not installed"}
+    if config not in SEMGRP_ALLOWLIST:
+        return {"status": "error", "message": f"Config not allowed. Allowed: {SEMGRP_ALLOWLIST}"}
+
+    tp = resolve_target_path(target)
+    cmd = ["semgrep", "scan", "--json", "--config", config, str(tp)]
+    data = await run_command(cmd, timeout=600)
+
+    parsed = data.get("data") if isinstance(data.get("data"), dict) else None
+    report_path = None
+    if save_report_flag and parsed is not None:
+        report_path = save_report("semgrep", parsed, "json")
+
+    if parsed is None:
+        return {"status": data["status"], "tool": "semgrep", "raw": data, "report_path": report_path, "scan type": "Semgrep JSON"}
+
+    results = parsed.get("results", []) if isinstance(parsed, dict) else []
+    sev_counts: Dict[str, int] = {}
+    if output_format == "summary":
+        files: Dict[str, int] = {}
+        for r in results:
+            extra = r.get("extra", {}) if isinstance(r, dict) else {}
+            sev = (extra.get("severity") or "UNKNOWN").upper()
+            sev_counts[sev] = sev_counts.get(sev, 0) + 1
+            path = r.get("path", "UNKNOWN")
+            files[path] = files.get(path, 0) + 1
+
+        top_files = sorted(files.items(), key=lambda x: x[1], reverse=True)[:10]
+        return {
+            "report_path": report_path,
+            "scan type": "Semgrep JSON",
+            "normalized_report": normalized,
+            "status": "success",
+            "tool": "semgrep",
+            "target": str(tp),
+            "config": config,
+            "summary": {
+                "issues_total": len(results),
+                "severity_counts": sev_counts,
+                "top_files": [{"file": f, "count": c} for f, c in top_files],
+            },
+           
+        }
+
+    detailed = []
+    for r in results[:200]:
+        extra = r.get("extra", {}) if isinstance(r, dict) else {}
+        start = r.get("start", {}) if isinstance(r, dict) else {}
+        detailed.append({
+            "check_id": r.get("check_id"),
+            "path": r.get("path"),
+            "line": start.get("line"),
+            "severity": (extra.get("severity") or "UNKNOWN"),
+            "message": extra.get("message") or "",
+        })
+
+    normalized = {
+    "tool": "semgrep",
+    "category": "SAST",
+    "target": str(tp),
+    "summary": {
+        "total_findings": len(results),
+        "critical": sev_counts.get("CRITICAL", 0),
+        "high": sev_counts.get("HIGH", 0),
+        "medium": sev_counts.get("MEDIUM", 0),
+        "low": sev_counts.get("LOW", 0),
+    },
+    "findings": [
+        {
+            "id": r.get("check_id"),
+            "title": r.get("extra", {}).get("message"),
+            "description": r.get("extra", {}).get("message"),
+            "severity": (r.get("extra", {}).get("severity") or "UNKNOWN").upper(),
+            "location": {
+                "file": r.get("path"),
+                "line": r.get("start", {}).get("line"),
+            },
+            "recommendation": None,
+            "references": [],
+        }
+        for r in results
+    ],
+}
+
+    return {
+        "status": "success",
+        "tool": "semgrep",
+        "target": str(tp),
+        "config": config,
+        "issues_total": len(results),
+        "findings_sample": detailed,
+        "report_path": report_path,
+        "normalized_report": normalized,
+    }
+
+async def tool_run_trivy_scan(
+    target: str,
+    scan_type: str = "filesystem",
+    severity_filter: str = "HIGH,CRITICAL",
+    output_format: str = "summary",
+    save_report_flag: bool = False,
+) -> Dict[str, Any]:
+    if not check_command("trivy"):
+        return {"status": "error", "message": "trivy not installed"}
+
+    cmd = ["trivy"]
+    if scan_type == "filesystem":
+        tp = resolve_target_path(target)
+        cmd += ["fs", str(tp)]
+        target_desc = str(tp)
+    elif scan_type == "image":
+        cmd += ["image", target]
+        target_desc = target
+    else:
+        return {"status": "error", "message": "scan_type must be filesystem or image"}
+
+    cmd += ["--format", "json", "--timeout", "10m"]
+    if severity_filter:
+        cmd += ["--severity", severity_filter]
+    if TRIVY_SCANNERS:
+        cmd += ["--scanners", TRIVY_SCANNERS]
+    if TRIVY_SKIP_DB_UPDATE:
+        cmd += ["--skip-db-update"]
+
+    data = await run_command(cmd, timeout=900)
+
+    parsed = data.get("data") if isinstance(data.get("data"), dict) else None
+    report_path = None
+    if save_report_flag and parsed is not None:
+        report_path = save_report("trivy", parsed, "json")
+
+    if parsed is None:
+        return {"status": data["status"], "tool": "trivy", "raw": data, "report_path": report_path, "scan type": "Trivy Scan"}
+
+    results = parsed.get("Results", []) if isinstance(parsed, dict) else []
+    total_vuln = 0
+    per_target = []
+
+    for r in results:
+        tname = r.get("Target", "Unknown")
+        vulns = r.get("Vulnerabilities") or []
+        misconf = r.get("Misconfigurations") or []
+        secrets = r.get("Secrets") or []
+
+        total_vuln += len(vulns)
+
+        if output_format == "summary":
+            sev_counts: Dict[str, int] = {}
+            for v in vulns:
+                sev = (v.get("Severity") or "UNKNOWN").upper()
+                sev_counts[sev] = sev_counts.get(sev, 0) + 1
+            per_target.append({
+                "target": tname,
+                "vuln_count": len(vulns),
+                "misconfig_count": len(misconf),
+                "secret_count": len(secrets),
+                "severity_counts": sev_counts
+            })
+
+    if output_format == "summary":
+        return {
+            "status": "success",
+            "tool": "trivy",
+            "target": target_desc,
+            "summary": {
+                "total_vulnerabilities": total_vuln,
+                "results": per_target,
+                "scanners": TRIVY_SCANNERS,
+                "skip_db_update": TRIVY_SKIP_DB_UPDATE,
+            },
+            "report_path": report_path,
+            "scan type": "Trivy Scan",
+        }
+
+    sample = []
+    for r in results:
+        vulns = r.get("Vulnerabilities") or []
+        for v in vulns[:50]:
+            sample.append({
+                "id": v.get("VulnerabilityID"),
+                "pkg": v.get("PkgName"),
+                "installed": v.get("InstalledVersion"),
+                "fixed": v.get("FixedVersion"),
+                "severity": v.get("Severity"),
+                "title": v.get("Title") or "",
+            })
+    normalized = {
+    "tool": "trivy",
+    "category": "SCA",
+    "scan type": "Trivy Scan",
+    "target": target_desc,
+    "summary": {
+        "total_findings": total_vuln,
+        "critical": sum(1 for r in results for v in (r.get("Vulnerabilities") or []) if v.get("Severity") == "CRITICAL"),
+        "high": sum(1 for r in results for v in (r.get("Vulnerabilities") or []) if v.get("Severity") == "HIGH"),
+        "medium": sum(1 for r in results for v in (r.get("Vulnerabilities") or []) if v.get("Severity") == "MEDIUM"),
+        "low": sum(1 for r in results for v in (r.get("Vulnerabilities") or []) if v.get("Severity") == "LOW"),
+    },
+    "findings": [
+        {
+            "id": v.get("VulnerabilityID"),
+            "title": v.get("Title"),
+            "description": v.get("Description"),
+            "severity": v.get("Severity"),
+            "location": {
+                "dependency": v.get("PkgName"),
+            },
+            "evidence": v.get("InstalledVersion"),
+            "recommendation": v.get("FixedVersion"),
+            "references": v.get("References") or [],
+        }
+        for r in results
+        for v in (r.get("Vulnerabilities") or [])
+    ],
+}
+
+
+    return {"status": "success", "tool": "trivy", "target": target_desc, "issues_sample": sample, "report_path": report_path, "normalized_report": normalized}
+
+####Herramientas contexto #############
+async def tool_get_changed_files(project_path: str, commit_sha: str, save_report_flag: bool = False) -> Dict[str, Any]:
+    tp = resolve_target_path(project_path)
+    # Usamos cwd real en lugar de pasar PWD como variable de entorno
+    cmd = ["git", "diff", "--name-only", f"{commit_sha}^", commit_sha]
+    data = await run_command(cmd, cwd=str(tp))
+    
+    files = data.get("stdout", "").splitlines()
+    return {
+        "files": files,
+        "languages": list({f.split(".")[-1] for f in files if "." in f})
+    }
+
+async def tool_analyze_project_type(target: str, save_report_flag: bool = False) -> Dict[str, Any]:
+    tp = resolve_target_path(target)
+    
+    # Búsqueda eficiente de archivos clave en lugar de rglob total
+    has_docker = (tp / "Dockerfile").exists()
+    has_node = (tp / "package.json").exists()
+    
+    # Para Python, verificamos si hay algún .py en la raíz o requirements.txt
+    py_files = list(tp.glob("*.py"))
+    has_python = len(py_files) > 0 or (tp / "requirements.txt").exists()
+    
+    # Conteo de archivos limitado para evitar bloqueos en carpetas gigantes como node_modules
+    files_count = 0
+    try:
+        # Solo contamos archivos en el primer nivel o usamos una forma más ligera si es posible
+        # Para mantener la funcionalidad pero con seguridad:
+        files_count = sum(1 for p in tp.iterdir() if p.is_file())
+        # Si quieres recursivo pero seguro, podrías usar un límite o excluir carpetas pesadas
+    except Exception:
+        pass
+
+    return {
+        "has_docker": has_docker,
+        "has_python": has_python,
+        "has_node": has_node,
+        "files_count": files_count,
+    }
+
+async def tool_assess_risk_level(context: Dict):
+    score = 0
+    # Ajustamos la lógica para que el score sea más representativo
+    if context.get("has_docker"): score += 3
+    if context.get("has_python"): score += 3
+    if context.get("has_node"): score += 3
+    if context.get("files_count", 0) > 20: score += 1
+    
+    risk_score = min(score, 10)
+    
+    return {
+        "risk_score": risk_score,
+        "recommended_scans": (
+            ["semgrep", "trivy", "gitleaks"]
+            if risk_score >= 5 else
+            ["gitleaks"]
+        )
+    }
+
+#===============Gitlab comment=================
+async def tool_create_gitlab_comment(
+    gitlab_url: str,
+    project_id: str,
+    merge_request_iid: int,
+    gitlab_token: str,
+    findings: list,
+    title: str = "🔒 Security Scan Results"
+):
+    import requests
+
+    if not findings:
+        body = f"## {title}\n\n✅ No se detectaron vulnerabilidades relevantes."
+    else:
+        body = f"## {title}\n\n"
+        for f in findings[:5]:
+            body += (
+                f"- **{f.get('severity', 'UNKNOWN')}** | "
+                f"{f.get('title', 'Finding')} "
+                f"({f.get('tool', 'tool desconocida')})\n"
+            )
+
+        if len(findings) > 5:
+            body += f"\n⚠️ Se detectaron **{len(findings)}** hallazgos en total."
+
+    url = (
+        f"{gitlab_url.rstrip('/')}"
+        f"/api/v4/projects/{project_id}/merge_requests/"
+        f"{merge_request_iid}/notes"
+    )
+
+    headers = {
+        "PRIVATE-TOKEN": gitlab_token,
+        "Content-Type": "application/json",
+    }
+
+    resp = requests.post(url, headers=headers, json={"body": body})
+
+    return {
+        "status": "success" if resp.ok else "error",
+        "http_status": resp.status_code,
+        "comment_posted": resp.ok,
+        "response": resp.text,
+    }
+
+
+###############################
+async def tool_run_gitleaks(target: str, save_report_flag: bool = False) -> Dict[str, Any]:
+    if not check_command("gitleaks"):
+        return {"status": "error", "message": "gitleaks not installed"}
+
+    tp = resolve_target_path(target)
+    report_file=REPORTS_ROOT / "gitleaks_report.json"
+    cmd = ["gitleaks", "detect", "--source", str(tp), "--report-format", "json", "--report-path", str(report_file)]
+
+    data = await run_command(cmd, timeout=300)
+    parsed = data.get("data") if isinstance(data.get("data"), list) else None
+    parsed = [] 
+    if report_file.exists():
+        parsed = json.loads(report_file.read_text())
+    report_path = str(report_file) if report_file.exists() else None
+    if save_report_flag and parsed is not None:
+        report_path = save_report("gitleaks", parsed, "json")
+    normalized = {
+    "tool": "gitleaks",
+    "category": "SECRETS",
+    "target": str(tp),
+    "summary": {
+        "total_findings": len(parsed or []),
+        "critical": len(parsed or []),
+        "high": 0,
+        "medium": 0,
+        "low": 0,
+    },
+    "findings": [
+        {
+            "id": f.get("RuleID"),
+            "title": f.get("Description"),
+            "description": f.get("Description"),
+            "severity": "CRITICAL",
+            "location": {
+                "file": f.get("File"),
+                "line": f.get("StartLine"),
+            },
+            "evidence": f.get("Secret"),
+            "recommendation": "Rotate the exposed secret immediately",
+            "references": [],
+        }
+        for f in (parsed or [])
+    ],
+}
+
+    return {
+        "status": "success",
+        "tool": "gitleaks",
+        "findings": parsed or [],
+        "report_path": report_path,
+        "normalized_report": normalized,
+        "scan type": "Gitleaks Scan"
+    }
+######DEFECT DOJO SAST######
+async def tool_upload_defectdojo(
+    scan_type: str,
+    report_path: str,
+    engagement_id: int,
+    test_title: str = "Automated Scan",
+) -> Dict[str, Any]:
+    import requests
+
+    p = Path(report_path)
+    if not p.exists():
+        return {"status": "error", "message": "Report file not found"}
+
+    url = f"{os.getenv('DEFECTDOJO_URL').rstrip('/')}/api/v2/import-scan/"
+    headers = {
+        "Authorization": f"Token {os.getenv('DEFECTDOJO_API_KEY')}",
+    }
+
+    files = {
+        "file": p.open("rb")
+    }
+
+    data = {
+        "scan_type": scan_type,
+        "engagement": engagement_id,
+        "test_title": test_title,
+        "auto_create_context": "true",
+        "close_old_findings": "false",
+    }
+
+    resp = requests.post(url, headers=headers, files=files, data=data)
+
+    return {
+        "status": "success" if resp.ok else "error",
+        "http_status": resp.status_code,
+        "response": resp.text,
+    }
+
+############################
+
+
+async def tool_run_npm_audit(target: str, save_report_flag: bool = False) -> Dict[str, Any]:
+    tp = resolve_target_path(target)
+    cmd = ["npm", "audit", "--json"]
+    data = await run_command(cmd, timeout=300, cwd=str(tp))
+    
+    if save_report_flag and isinstance(data.get("data"), dict):
+        save_report("npm_audit", data["data"], "json")
+
+    return data
+
+async def tool_run_eslint(target: str, save_report_flag: bool = False) -> Dict[str, Any]:
+    tp = resolve_target_path(target)
+    cmd = ["eslint", ".", "-f", "json"]
+    data = await run_command(cmd, timeout=300, cwd=str(tp))
+    if save_report_flag and isinstance(data.get("data"), list):
+        save_report("eslint", data["data"], "json")
+
+    return data
+async def tool_run_govulncheck(target: str, save_report_flag: bool = False) -> Dict[str, Any]:
+    tp = resolve_target_path(target)
+    cmd = ["govulncheck", "-json", "./..."]
+    data = await run_command(cmd, timeout=300, cwd=str(tp))
+    if save_report_flag:
+        save_report("govulncheck", data.get("data"), "json")
+
+    return data
+## .NET Vulnerability Check
+async def tool_run_dotnet_vuln(target: str, save_report_flag: bool = False) -> Dict[str, Any]:
+    tp = resolve_target_path(target)
+    cmd = ["dotnet", "list", "package", "--include-transitive", "--vulnerable", "--format", "json"]
+    data = await run_command(cmd, timeout=300, cwd=str(tp))
+    if save_report_flag:
+        save_report("dotnet_vuln", data.get("data"), "json")
+
+    return data
+
+## Roslynator Analysis
+async def tool_run_roslynator(target: str, save_report_flag: bool = False) -> Dict[str, Any]:
+    tp = resolve_target_path(target)
+    cmd = ["roslynator", "analyze", ".", "--format", "json"]
+    data = await run_command(cmd, timeout=300, cwd=str(tp))
+    if save_report_flag:
+        save_report("roslynator", data.get("data"), "json")
+    return data
+###CycloneDX###
+async def tool_generate_cyclonedx(
+    target: str,
+    save_report_flag: bool = True
+) -> Dict[str, Any]:
+    if not check_command("trivy"):
+        return {"status": "error", "message": "trivy not installed"}
+
+    tp = resolve_target_path(target)
+    out_dir = REPORTS_ROOT / "cyclonedx"
+    out_dir.mkdir(parents=True, exist_ok=True)
+
+    bom_path = out_dir / "bom.json"
+
+    cmd = [
+        "trivy",
+        "fs",
+        "--format", "cyclonedx",
+        "--output", str(bom_path),
+        str(tp)
+    ]
+
+    data = await run_command(cmd, timeout=600)
+
+    return {
+        "status": "success" if bom_path.exists() else "error",
+        "tool": "cyclonedx",
+        "bom_path": str(bom_path) if bom_path.exists() else None,
+        "raw": data,
+        "scan_type": "CycloneDX Scan"
+    }
+
+## Dependency check
+async def tool_run_dependency_check(
+    target: str,
+    save_report_flag: bool = True
+) -> Dict[str, Any]:
+    if not check_command("dependency-check.sh"):
+        return {"status": "error", "message": "dependency-check not installed"}
+
+    tp = resolve_target_path(target)
+    out_dir = REPORTS_ROOT / "dependency-check"
+    out_dir.mkdir(parents=True, exist_ok=True)
+    nvd_api_key = os.getenv("NVD_API_KEY", "909d4a51-5327-47cc-b02a-05246a2cee54")
+    cmd = [
+        "dependency-check.sh",
+        "--scan", str(tp),
+        "--format", "JSON",
+        "--out", str(out_dir),
+        "--disableAssembly",
+        #"--nvdApiKey", nvd_api_key,
+        "--nvdApiDelay", "10000",
+        "--nvdMaxRetryCount", "10"
+        "--noupdate"
+
+      ]
+    ##Para correr el dependecy check, siempre vamos a necesitar sacar el nvd api key
+    ##Si no lo tenemos, ponemos una cadena vacia
+    ##¿Por que? Porque si no lo ponemos, el dependecy check no corre
+    ##Link https://nvd.nist.gov/developers/request-an-api-key
+    #f nvd_api_key:
+     #  cmd += ["--nvdApiKey", nvd_api_key]
+    data = await run_command(cmd, timeout=1800)
+
+    report = out_dir / "dependency-check-report.json"
+    return {
+        "status": "success",
+        "tool": "dependency-check",
+        "report_path": str(report) if report.exists() else None,
+        "raw": data,
+    }
+async def tool_upload_dependency_track(bom_path: str) -> Dict[str, Any]:
+    import requests
+
+    p = Path(bom_path)
+    if not p.exists():
+        return {"status": "error", "message": "BOM not found"}
+
+    url = f"{os.getenv('DT_URL')}/api/v1/bom"
+    headers = {"X-Api-Key": os.getenv("DT_API_KEY")}
+
+    files = {"bom": p.open("rb")}
+    data = {
+        "project": os.getenv("DT_PROJECT_UUID"),
+        "autoCreate": "false"
+    }
+
+    r = requests.post(url, headers=headers, files=files, data=data)
+    return {
+        "status": "success" if r.ok else "error",
+        "http_status": r.status_code,
+        "response": r.text
+    }
+
+#### ZAP Health Check###
+
+async def tool_check_zap_health() -> Dict[str, Any]:
+    return await run_in_threadpool(zap_health_sync)
+
+# =========================
+# ZAP ASYNC: start/status/result/cancel
+# =========================
+async def _zap_quick_scan_worker(job_id: str):
+    job = ZAP_JOBS[job_id]
+    try:
+        job["status"] = "running"
+        job["updated_at"] = int(time.time())
+
+        def _run_sync():
+            zap = get_zap_client()
+            _ = zap.core.version
+            scope = zap_prepare_scope_sync(job["target_url"], context_name=job["context_name"])
+            job["scope"] = scope
+
+            # Spider
+            spider_id = zap.spider.scan(job["target_url"], maxchildren=200)
+            job["spider_id"] = spider_id
+            job["spider_progress"] = 0
+            job["updated_at"] = int(time.time())
+
+            spider_deadline = time.time() + int(job["spider_minutes"]) * 60
+            while time.time() < spider_deadline:
+                time.sleep(5)
+                prog = int(zap.spider.status(spider_id))
+                job["spider_progress"] = prog
+                job["updated_at"] = int(time.time())
+                if prog >= 100:
+                    break
+                # cooperative cancel check (set by cancel endpoint)
+                if job.get("status") == "canceled":
+                    return
+
+            # Active scan
+            ascan_id = zap.ascan.scan(job["target_url"])
+            job["active_scan_id"] = ascan_id
+            job["ascan_progress"] = 0
+            job["updated_at"] = int(time.time())
+
+            ascan_deadline = time.time() + int(job["active_minutes"]) * 60
+            while time.time() < ascan_deadline:
+                time.sleep(10)
+                prog = int(zap.ascan.status(ascan_id))
+                job["ascan_progress"] = prog
+                job["updated_at"] = int(time.time())
+                if prog >= 100:
+                    break
+                if job.get("status") == "canceled":
+                    return
+
+            alerts = zap.core.alerts(baseurl=job["target_url"]) or []
+            risk_counts: Dict[str, int] = {}
+            for a in alerts:
+                risk = a.get("risk", "Informational")
+                risk_counts[risk] = risk_counts.get(risk, 0) + 1
+
+            job["alerts_total"] = len(alerts)
+            job["risk_counts"] = risk_counts
+
+            if job.get("save_report_flag"):
+                html = zap.core.htmlreport()
+                jrep = zap.core.jsonreport()
+                job["report_path"] = {
+                    "html": save_report("zap_report", html, "html"),
+                    "json": save_report("zap_report", json.loads(jrep), "json"),
+                }
+
+        await run_in_threadpool(_run_sync)
+
+        if job.get("status") == "canceled":
+            job["updated_at"] = int(time.time())
+            return
+
+        job["status"] = "done"
+        job["updated_at"] = int(time.time())
+
+    except Exception as e:
+        job["status"] = "error"
+        job["error"] = str(e)
+        job["updated_at"] = int(time.time())
+
+async def tool_zap_start_quick_scan(
+    target_url: str,
+    spider_minutes: int = 3,
+    active_minutes: int = 10,
+    context_name: str = "default",
+    save_report_flag: bool = False,
+) -> Dict[str, Any]:
+    # Light validation
+    if not target_url.startswith("http://") and not target_url.startswith("https://"):
+        return {"status": "error", "message": "target_url must start with http:// or https://"}
+    # Health check early
+    hz = await tool_check_zap_health()
+    if not hz.get("ok"):
+        return {"status": "error", "message": f"ZAP not reachable: {hz.get('error', 'unknown')}", "zap": hz}
+
+    job_id = str(uuid.uuid4())
+    now = int(time.time())
+    ZAP_JOBS[job_id] = {
+        "job_id": job_id,
+        "status": "queued",
+        "created_at": now,
+        "updated_at": now,
+        "target_url": target_url,
+        "context_name": context_name,
+        "spider_minutes": int(spider_minutes),
+        "active_minutes": int(active_minutes),
+        "save_report_flag": bool(save_report_flag),
+        "spider_progress": 0,
+        "ascan_progress": 0,
+    }
+
+    task = asyncio.create_task(_zap_quick_scan_worker(job_id))
+    ZAP_JOB_TASKS[job_id] = task
+
+    return {"status": "accepted", "job_id": job_id}
+
+async def tool_zap_job_status(job_id: str) -> Dict[str, Any]:
+    job = ZAP_JOBS.get(job_id)
+    if not job:
+        return {"status": "error", "message": "job not found"}
+    # Return a safe subset
+    return {
+        "status": "success",
+        "job": {
+            "job_id": job["job_id"],
+            "state": job["status"],
+            "target_url": job["target_url"],
+            "created_at": job["created_at"],
+            "updated_at": job["updated_at"],
+            "spider_id": job.get("spider_id"),
+            "active_scan_id": job.get("active_scan_id"),
+            "spider_progress": job.get("spider_progress", 0),
+            "ascan_progress": job.get("ascan_progress", 0),
+            "error": job.get("error"),
+        }
+    }
+
+async def tool_zap_job_result(job_id: str) -> Dict[str, Any]:
+    job = ZAP_JOBS.get(job_id)
+    if not job:
+        return {"status": "error", "message": "job not found"}
+    if job["status"] != "done":
+        return {"status": "not_ready", "state": job["status"], "job_id": job_id, "error": job.get("error")}
+    normalized = {
+    "tool": "zap",
+    "scan_type": "ZAP Scan",
+    "category": "DAST",
+    "target": job["target_url"],
+    "summary": {
+        "total_findings": job.get("alerts_total", 0),
+        "critical": job.get("risk_counts", {}).get("High", 0),
+        "high": job.get("risk_counts", {}).get("Medium", 0),
+        "medium": job.get("risk_counts", {}).get("Low", 0),
+        "low": job.get("risk_counts", {}).get("Informational", 0),
+    },
+    "findings": job.get("alerts", []),  # opcional si decides guardarlos
+}
+    
+    return {
+        "status": "success",
+        "job_id": job_id,
+        "target_url": job["target_url"],
+        "alerts_total": job.get("alerts_total", 0),
+        "risk_counts": job.get("risk_counts", {}),
+        "report_path": job.get("report_path"),
+        "scope": job.get("scope"),
+    }
+#############Clonar el repositorio#############
+async def tool_clone_repo(
+    repo_url: str,
+    project_path: str,
+    commit_sha: str
+) -> Dict[str, Any]:
+    if not check_command("git"):
+        return {"status": "error", "message": "git not installed"}
+
+    target_dir = SCAN_ROOT / project_path / commit_sha
+    target_dir.parent.mkdir(parents=True, exist_ok=True)
+
+    if target_dir.exists():
+        return {
+            "status": "success",
+            "message": "repo already cloned",
+            "target": str(target_dir),
+        }
+
+    cmd = [
+        "git", "clone",
+        "--depth", "1",
+        repo_url,
+        str(target_dir),
+    ]
+
+    data = await run_command(cmd, timeout=300)
+
+    return {
+        "status": "success" if data["status"] == "success" else "error",
+        "tool": "git-clone",
+        "target": str(target_dir),
+        "raw": data,
+    }
+#############################3#############################
+async def tool_zap_job_cancel(job_id: str) -> Dict[str, Any]:
+    job = ZAP_JOBS.get(job_id)
+    if not job:
+        return {"status": "error", "message": "job not found"}
+
+    if job["status"] in ("done", "error", "canceled"):
+        return {"status": "success", "message": f"job already {job['status']}", "job_id": job_id}
+
+    job["status"] = "canceled"
+    job["updated_at"] = int(time.time())
+
+    task = ZAP_JOB_TASKS.get(job_id)
+    if task and not task.done():
+        task.cancel()
+
+    return {"status": "success", "message": "cancel requested", "job_id": job_id}
+
+# =========================
+# REST Models
+# =========================
+class SemgrepReq(BaseIgnorantModel):
+    target: str
+    config: str = "p/default"
+    output_format: str = "summary"
+    save_report_flag: bool = False
+
+class TrivyReq(BaseIgnorantModel):
+    target: str
+    scan_type: str = "filesystem"
+    severity_filter: str = "HIGH,CRITICAL"
+    output_format: str = "summary"
+    save_report_flag: bool = False
+class SimpleTargetReq(BaseIgnorantModel):
+    target: str
+    save_report_flag: bool = False
+class DefectDojoUploadReq(BaseModel):
+    scan_type: str
+    report_path: str
+    engagement_id: int
+    test_title: str = "Automated Scan"
+
+class ZapQuickStartReq(BaseIgnorantModel):
+    target_url: str
+    spider_minutes: int = 3
+    active_minutes: int = 10
+    context_name: str = "default"
+    save_report_flag: bool = False
+####Gitlab comment model####
+class GitLabCommentReq(BaseModel):
+    gitlab_url: str
+    project_id: str
+    merge_request_iid: int
+    gitlab_token: str
+    findings: list
+    title: str = "🔒 Security Scan Results"
+
+@app.post("/tools/gitlab/comment")
+async def http_gitlab_comment(req: GitLabCommentReq):
+    return await tool_create_gitlab_comment(**req.model_dump())
+
+
+# =========================
+# REST Endpoints
+# =========================
+@app.get("/health")
+async def health():
+    return {"ok": True, "service": "security-tools", "time": int(time.time())}
+
+@app.get("/system/health")
+async def http_system_health():
+    return await tool_check_system_health()
+
+@app.get("/targets")
+async def http_targets():
+    return await tool_list_available_targets()
+
+@app.get("/reports")
+async def http_reports_list():
+    return await tool_reports_list()
+
+@app.get("/reports/{name}")
+async def http_reports_read(name: str):
+    return await tool_reports_read(name)
+
+@app.post("/tools/semgrep")
+async def http_semgrep(req: SemgrepReq):
+    return await tool_run_semgrep(**req.model_dump())
+@app.post("/tools/defectdojo/upload")
+async def http_defectdojo_upload(req: DefectDojoUploadReq):
+    return await tool_upload_defectdojo(**req.model_dump())
+@app.post("/tools/trivy")
+async def http_trivy(req: TrivyReq):
+    return await tool_run_trivy_scan(**req.model_dump())
+
+@app.get("/tools/zap/health")
+async def http_zap_health():
+    return await tool_check_zap_health()
+#========Contexto================
+@app.get("/tools/changed-files")
+async def http_changed_files(project_path: str, commit_sha: str):
+    return await tool_get_changed_files(project_path, commit_sha)
+
+# =========================#
+#CycloneDX Endpoint#
+@app.post("/tools/cyclonedx")
+async def http_generate_cyclonedx(req: SimpleTargetReq):
+    return await tool_generate_cyclonedx(**req.model_dump())
+
+
+# ASYNC ZAP endpoints (recommended)
+@app.post("/tools/zap/quick/start")
+async def http_zap_quick_start(req: ZapQuickStartReq):
+    return await tool_zap_start_quick_scan(**req.model_dump())
+#=========================#
+#Dependency Check and Track#
+@app.post("/tools/dependency-check")
+async def http_dependency_check(req: SimpleTargetReq):
+    return await tool_run_dependency_check(**req.model_dump())
+
+@app.post("/tools/dependency-track/upload")
+async def http_dependency_track_upload(bom_path: str):
+    return await tool_upload_dependency_track(bom_path)
+#============================#
+@app.get("/tools/zap/jobs/{job_id}/status")
+async def http_zap_job_status(job_id: str):
+    return await tool_zap_job_status(job_id)
+
+@app.get("/tools/zap/jobs/{job_id}/result")
+async def http_zap_job_result(job_id: str):
+    return await tool_zap_job_result(job_id)
+
+@app.post("/tools/zap/jobs/{job_id}/cancel")
+async def http_zap_job_cancel(job_id: str):
+    return await tool_zap_job_cancel(job_id)
+
+# Backward-compatible alias: /tools/zap/quick now STARTS async and returns job_id
+@app.post("/tools/zap/quick")
+async def http_zap_quick_alias(req: ZapQuickStartReq):
+    return await tool_zap_start_quick_scan(**req.model_dump())
+# =========================
+@app.post("/tools/gitleaks")
+async def http_gitleaks(req: SimpleTargetReq):
+    return await tool_run_gitleaks(**req.model_dump())
+
+@app.post("/tools/npm-audit")
+async def http_npm_audit(req: SimpleTargetReq):
+    return await tool_run_npm_audit(req.target)
+
+@app.post("/tools/eslint")
+async def http_eslint(req: SimpleTargetReq):
+    return await tool_run_eslint(req.target)
+
+@app.post("/tools/govulncheck")
+async def http_govulncheck(req: SimpleTargetReq):
+    return await tool_run_govulncheck(req.target)
+
+@app.post("/tools/dotnet-vuln")
+async def http_dotnet_vuln(req: SimpleTargetReq):
+    return await tool_run_dotnet_vuln(req.target)
+
+@app.post("/tools/roslynator")
+async def http_roslynator(req: SimpleTargetReq):
+    return await tool_run_roslynator(req.target)
+###Clonar repositorio tool###
+@app.post("/tools/clone-repository")
+async def http_clone_repository(req:SimpleTargetReq):
+    return await tool_clone_repo(**req.model_dump())
+@app.get("/tools/analyze-project-type")
+async def http_analyze_project_type(target: str):
+    return await tool_analyze_project_type(target)
+@app.get("/tools/assess-risk-level")
+async def http_assess_risk_level(context: Dict):
+    return await tool_assess_risk_level(context)
+
+# =========================
+# MCP Server (SSE)
+# =========================
+mcp = Server("security-tools-mcp")
+transport = SseServerTransport("/messages")
+
+@mcp.list_tools()
+async def mcp_list_tools() -> List[types.Tool]:
+    return [
+
+        #===============Contexto=================
+        types.Tool(name="get_changed_files", description="Get changed files and languages from a git commit", inputSchema={"type":"object","properties":{"project_path":{"type":"string"},"commit_sha":{"type":"string"}},"required":["project_path","commit_sha"]}),
+
+        types.Tool(name="check_system_health", description="Check availability of semgrep/trivy/zap and directories", inputSchema={"type":"object","properties":{}}),
+        types.Tool(name="list_available_targets", description="List available targets under /scan-targets", inputSchema={"type":"object","properties":{}}),
+        types.Tool(name="reports_list", description="List saved reports", inputSchema={"type":"object","properties":{}}),
+        types.Tool(name="reports_read", description="Read a saved report by name", inputSchema={"type":"object","properties":{"name":{"type":"string"}},"required":["name"]}),
+        types.Tool(name="run_semgrep", description="Run Semgrep scan (SAST) on a target under /scan-targets", inputSchema=SemgrepReq.model_json_schema()),
+        types.Tool(name="run_trivy_scan", description="Run Trivy scan (SCA/Secrets/Misconfig) on filesystem or image", inputSchema=TrivyReq.model_json_schema()),
+        types.Tool(name="check_zap_health", description="Check if OWASP ZAP is reachable", inputSchema={"type":"object","properties":{}}),
+        types.Tool(name="create_gitlab_comment",description="Post security findings as a comment in a GitLab Merge Request",inputSchema=GitLabCommentReq.model_json_schema(),),
+
+        # ASYNC ZAP tools (avoid MCP timeout)
+        types.Tool(name="zap_start_quick_scan", description="Start ZAP quick scan asynchronously (returns job_id)", inputSchema=ZapQuickStartReq.model_json_schema()),
+        types.Tool(name="zap_job_status", description="Get status/progress for a ZAP job", inputSchema={"type":"object","properties":{"job_id":{"type":"string"}},"required":["job_id"]}),
+        types.Tool(name="zap_job_result", description="Get result for a completed ZAP job", inputSchema={"type":"object","properties":{"job_id":{"type":"string"}},"required":["job_id"]}),
+        types.Tool(name="zap_job_cancel", description="Cancel a running ZAP job", inputSchema={"type":"object","properties":{"job_id":{"type":"string"}},"required":["job_id"]}),
+
+        ## Legacy tools (synchronous, may timeout on long runs)
+        types.Tool(name="run_gitleaks", description="Run Gitleaks secret scanning", inputSchema=SimpleTargetReq.model_json_schema()),
+        types.Tool(name="run_npm_audit", description="Run npm audit (SCA)", inputSchema=SimpleTargetReq.model_json_schema()),
+        types.Tool(name="run_eslint", description="Run ESLint (SAST)", inputSchema=SimpleTargetReq.model_json_schema()),
+        types.Tool(name="run_govulncheck", description="Run govulncheck (Go SCA)", inputSchema=SimpleTargetReq.model_json_schema()),
+        types.Tool(name="run_dotnet_vuln", description="Run dotnet vulnerable packages scan", inputSchema=SimpleTargetReq.model_json_schema()),
+        types.Tool(name="run_roslynator", description="Run Roslynator SAST", inputSchema=SimpleTargetReq.model_json_schema()),
+
+        ##Dependency check and track
+        types.Tool(name="run_dependency_check", description="Run OWASP Dependency-Check", inputSchema=SimpleTargetReq.model_json_schema()),
+        types.Tool(name="upload_dependency_track", description="Upload SBOM to Dependency-Track", inputSchema={"type":"object","properties":{"bom_path":{"type":"string"}},"required":["bom_path"]}),
+
+        ##CycloneDX
+        types.Tool(name="generate_cyclonedx", description="Generate CycloneDX SBOM using Trivy", inputSchema=SimpleTargetReq.model_json_schema()),
+
+        ##Clonar repositorio
+        types.Tool(name="clone_repository", description="Clone a git repository to a specific path and commit", inputSchema={"type":"object","properties":{"repo_url":{"type":"string"},"project_path":{"type":"string"},"commit_sha":{"type":"string"}},"required":["repo_url","project_path","commit_sha"]}),
+
+        #Defect Dojo Upload
+        types.Tool(name="upload_defectdojo", description="Upload a scan report to Defect Dojo", inputSchema=DefectDojoUploadReq.model_json_schema()),
+
+        types.Tool(name="assess_risk_level", description="Assess risk level based on provided context", inputSchema={"type":"object","properties":{"context":{"type":"object"}},"required":["context"]}),
+        types.Tool(name="analyze_project_type", description="Analyze the project type based on the target path", inputSchema={"type":"object","properties":{"target":{"type":"string"}},"required":["target"]}),
+
+    ]
+
+@mcp.call_tool()
+async def mcp_call_tool(name: str, arguments: Dict[str, Any]):
+    arguments = arguments or {}
+    if not isinstance(arguments, dict):
+        arguments = dict(arguments)
+
+    if name == "check_system_health":
+        out = await tool_check_system_health()
+        return [types.TextContent(type="text", text=json.dumps(out))]
+    
+    #================Contexto=================#
+    if name == "get_changed_files":
+        if "project_path" not in arguments:
+            raise ValueError("Missing required argument: project_path")
+        if "commit_sha" not in arguments:
+            raise ValueError("Missing required argument: commit_sha")
+        out = await tool_get_changed_files(
+            project_path=arguments["project_path"],
+            commit_sha=arguments["commit_sha"]
+        )
+        return [types.TextContent(type="text", text=json.dumps(out))]
+    if name == "analyze_project_type":
+        if "target" not in arguments:
+            raise ValueError("Missing required argument: target")
+        out = await tool_analyze_project_type(arguments["target"])
+        return [types.TextContent(type="text", text=json.dumps(out))]
+    if name == "assess_risk_level":
+        if "context" not in arguments:
+            raise ValueError("Missing required argument: context")
+        out = await tool_assess_risk_level(arguments["context"])
+        return [types.TextContent(type="text", text=json.dumps(out))]
+    #=======================================#
+
+    #=============Gitlab comments===============#
+    if name == "create_gitlab_comment":
+        args = GitLabCommentReq(**arguments)
+        out = await tool_create_gitlab_comment(**args.model_dump())
+        return [types.TextContent(type="text", text=json.dumps(out))]
+    
+    if name == "list_available_targets":
+        out = await tool_list_available_targets()
+        return [types.TextContent(type="text", text=json.dumps(out))]
+    if name == "upload_defectdojo":
+        if "scan_type" not in arguments:
+            raise ValueError("Missing required argument: scan_type")
+        if "report_path" not in arguments:
+            raise ValueError("Missing required argument: report_path")
+        if "engagement_id" not in arguments:
+            raise ValueError("Missing required argument: engagement_id")
+        out = await tool_upload_defectdojo(
+            scan_type=arguments["scan_type"],
+            report_path=arguments["report_path"],
+            engagement_id=arguments["engagement_id"],
+            test_title=arguments.get("test_title", "Automated Scan")
+        )
+        return [types.TextContent(type="text", text=json.dumps(out))]
+    if name == "reports_list":
+        out = await tool_reports_list()
+        return [types.TextContent(type="text", text=json.dumps(out))]
+    
+    if name == "clone_repository":
+        if "repo_url" not in arguments:
+            raise ValueError("Missing required argument: repo_url")
+        if "project_path" not in arguments:
+            raise ValueError("Missing required argument: project_path")
+        if "commit_sha" not in arguments:
+            raise ValueError("Missing required argument: commit_sha")
+        out = await tool_clone_repo(
+            repo_url=arguments["repo_url"],
+            project_path=arguments["project_path"],
+            commit_sha=arguments["commit_sha"]
+        )
+
+        return [types.TextContent(type="text", text=json.dumps(out))]
+    if name == "reports_read":
+        if "name" not in arguments:
+            raise ValueError("Missing required argument: name")
+        out = await tool_reports_read(arguments["name"])
+        return [types.TextContent(type="text", text=json.dumps(out))]
+
+    if name == "run_semgrep":
+        args = SemgrepReq(**arguments)
+        out = await tool_run_semgrep(**args.model_dump())
+        return [types.TextContent(type="text", text=json.dumps(out))]
+
+    if name == "run_trivy_scan":
+        args = TrivyReq(**arguments)
+        out = await tool_run_trivy_scan(**args.model_dump())
+        return [types.TextContent(type="text", text=json.dumps(out))]
+
+    if name == "check_zap_health":
+        out = await tool_check_zap_health()
+        return [types.TextContent(type="text", text=json.dumps(out))]
+    ##Dependency check and track
+    if name == "run_dependency_check":
+        args = SimpleTargetReq(**arguments)
+        out = await tool_run_dependency_check(**args.model_dump())
+        return [types.TextContent(type="text", text=json.dumps(out))]
+    if name == "upload_dependency_track":
+        bom_path = arguments.get("bom_path")
+        if not bom_path:
+            raise ValueError("Missing required argument: bom_path")
+        out = await tool_upload_dependency_track(bom_path)
+        return [types.TextContent(type="text", text=json.dumps(out))]
+    #New Tools(eslint, npm-audit, gitleaks, govulncheck, dotnet-vuln, roslynator)
+    if name == "run_gitleaks":
+        args = SimpleTargetReq(**arguments)
+        out = await tool_run_gitleaks(**args.model_dump())
+        return [types.TextContent(type="text", text=json.dumps(out))]
+    if name == "run_npm_audit":
+        args = SimpleTargetReq(**arguments)
+        out = await tool_run_npm_audit(args.target)
+        return [types.TextContent(type="text", text=json.dumps(out))]
+    if name == "run_eslint":
+        args = SimpleTargetReq(**arguments)
+        out = await tool_run_eslint(args.target)
+        return [types.TextContent(type="text", text=json.dumps(out))]
+    if name == "run_govulncheck":
+        args = SimpleTargetReq(**arguments)
+        out = await tool_run_govulncheck(args.target)
+        return [types.TextContent(type="text", text=json.dumps(out))]
+    if name == "run_dotnet_vuln":
+        args = SimpleTargetReq(**arguments)
+        out = await tool_run_dotnet_vuln(args.target)
+        return [types.TextContent(type="text", text=json.dumps(out))]
+    if name == "run_roslynator":
+        args = SimpleTargetReq(**arguments)
+        out = await tool_run_roslynator(args.target)
+        return [types.TextContent(type="text", text=json.dumps(out))]
+    
+    #=================================================================#
+    #CycloneDX#
+    if name == "generate_cyclonedx":
+        args = SimpleTargetReq(**arguments)
+        out = await tool_generate_cyclonedx(**args.model_dump())
+        return [types.TextContent(type="text", text=json.dumps(out))]
+
+
+    #================================================================#
+    # ASYNC ZAP (key change)
+    if name == "zap_start_quick_scan":
+        args = ZapQuickStartReq(**arguments)
+        out = await tool_zap_start_quick_scan(**args.model_dump())
+        return [types.TextContent(type="text", text=json.dumps(out))]
+
+    if name == "zap_job_status":
+        job_id = arguments.get("job_id")
+        if not job_id:
+            raise ValueError("Missing required argument: job_id")
+        out = await tool_zap_job_status(job_id)
+        return [types.TextContent(type="text", text=json.dumps(out))]
+
+    if name == "zap_job_result":
+        job_id = arguments.get("job_id")
+        if not job_id:
+            raise ValueError("Missing required argument: job_id")
+        out = await tool_zap_job_result(job_id)
+        return [types.TextContent(type="text", text=json.dumps(out))]
+
+    if name == "zap_job_cancel":
+        job_id = arguments.get("job_id")
+        if not job_id:
+            raise ValueError("Missing required argument: job_id")
+        out = await tool_zap_job_cancel(job_id)
+        return [types.TextContent(type="text", text=json.dumps(out))]
+
+    raise ValueError(f"Unknown tool: {name}")
+
+@app.get("/sse")
+async def sse(request: Request):
+    async with transport.connect_sse(request.scope, request.receive, request._send) as (r, w):
+        await mcp.run(r, w, mcp.create_initialization_options())
+
+@app.post("/messages")
+async def messages(request: Request):
+    await transport.handle_post_message(request.scope, request.receive, request._send)
+
+# =========================
+# Main
+# =========================
+if __name__ == "__main__":
+    import uvicorn
+    host = os.getenv("HOST", "0.0.0.0")
+    port = int(os.getenv("PORT", "8088"))
+    logger.info("Starting REST + MCP(SSE) on %s:%s", host, port)
+    uvicorn.run(app, host=host, port=port)

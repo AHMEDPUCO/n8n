@@ -1,0 +1,913 @@
+{
+  "SchemaVersion": 2,
+  "ReportID": "019bde29-00ac-7ec5-82eb-9740ae51860c",
+  "CreatedAt": "2026-01-21T01:26:27.75697581Z",
+  "ArtifactID": "sha256:3c3c549a90e224346fa007c0bd983e8237b34c4e46b66f70bde899ca5312be3e",
+  "ArtifactName": "/scan-targets/ahmedpuco03/mi-app-vulnerable/e1b4fe9e4d96555d6b85c5e0552a2e05ba00163b",
+  "ArtifactType": "repository",
+  "Metadata": {
+    "RepoURL": "https://gitlab.com/ahmedpuco03/mi-app-vulnerable.git",
+    "Branch": "main",
+    "Commit": "e1b4fe9e4d96555d6b85c5e0552a2e05ba00163b",
+    "CommitMsg": "Edit pruebas.py",
+    "Author": "Ahmed Puco <ahmedpuco03@gmail.com>",
+    "Committer": "Ahmed Puco <ahmedpuco03@gmail.com>"
+  },
+  "Results": [
+    {
+      "Target": "requirements.txt",
+      "Class": "lang-pkgs",
+      "Type": "pip",
+      "Packages": [
+        {
+          "Name": "Flask",
+          "Identifier": {
+            "PURL": "pkg:pypi/flask@0.12",
+            "UID": "8bca23640d3637c7"
+          },
+          "Version": "0.12",
+          "Locations": [
+            {
+              "StartLine": 2,
+              "EndLine": 2
+            }
+          ]
+        },
+        {
+          "Name": "PyJWT",
+          "Identifier": {
+            "PURL": "pkg:pypi/pyjwt@1.5.0",
+            "UID": "bb231c0d28e4ee4e"
+          },
+          "Version": "1.5.0",
+          "Locations": [
+            {
+              "StartLine": 3,
+              "EndLine": 3
+            }
+          ]
+        },
+        {
+          "Name": "requests",
+          "Identifier": {
+            "PURL": "pkg:pypi/requests@2.18.0",
+            "UID": "f97db59afaae3f35"
+          },
+          "Version": "2.18.0",
+          "Locations": [
+            {
+              "StartLine": 1,
+              "EndLine": 1
+            }
+          ]
+        },
+        {
+          "Name": "urllib3",
+          "Identifier": {
+            "PURL": "pkg:pypi/urllib3@1.21",
+            "UID": "ab46f1c8125fa769"
+          },
+          "Version": "1.21",
+          "Locations": [
+            {
+              "StartLine": 4,
+              "EndLine": 4
+            }
+          ]
+        }
+      ],
+      "Vulnerabilities": [
+        {
+          "VulnerabilityID": "CVE-2018-1000656",
+          "PkgName": "Flask",
+          "PkgIdentifier": {
+            "PURL": "pkg:pypi/flask@0.12",
+            "UID": "8bca23640d3637c7"
+          },
+          "InstalledVersion": "0.12",
+          "FixedVersion": "0.12.3",
+          "Status": "fixed",
+          "SeveritySource": "ghsa",
+          "PrimaryURL": "https://avd.aquasec.com/nvd/cve-2018-1000656",
+          "DataSource": {
+            "ID": "ghsa",
+            "Name": "GitHub Security Advisory pip",
+            "URL": "https://github.com/advisories?query=type%3Areviewed+ecosystem%3Apip"
+          },
+          "Fingerprint": "sha256:fba39945575838c875c811881267d1a2b9ad57cd1a0744fe64328e72d7743d75",
+          "Title": "python-flask: Denial of Service via crafted JSON file",
+          "Description": "The Pallets Project flask version Before 0.12.3 contains a CWE-20: Improper Input Validation vulnerability in flask that can result in Large amount of memory usage possibly leading to denial of service. This attack appear to be exploitable via Attacker provides JSON data in incorrect encoding. This vulnerability appears to have been fixed in 0.12.3. NOTE: this may overlap CVE-2019-1010083.",
+          "Severity": "HIGH",
+          "CweIDs": [
+            "CWE-20"
+          ],
+          "VendorSeverity": {
+            "ghsa": 3,
+            "nvd": 3,
+            "redhat": 1,
+            "ubuntu": 1
+          },
+          "CVSS": {
+            "ghsa": {
+              "V3Vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H",
+              "V3Score": 7.5
+            },
+            "nvd": {
+              "V2Vector": "AV:N/AC:L/Au:N/C:N/I:N/A:P",
+              "V3Vector": "CVSS:3.0/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H",
+              "V2Score": 5,
+              "V3Score": 7.5
+            },
+            "redhat": {
+              "V3Vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H",
+              "V3Score": 7.5
+            }
+          },
+          "References": [
+            "https://access.redhat.com/security/cve/CVE-2018-1000656",
+            "https://github.com/advisories/GHSA-562c-5r94-xh97",
+            "https://github.com/pallets/flask",
+            "https://github.com/pallets/flask/commit/b178e89e4456e777b1a7ac6d7199052d0dfdbbbe",
+            "https://github.com/pallets/flask/pull/2691",
+            "https://github.com/pallets/flask/releases/tag/0.12.3",
+            "https://github.com/pypa/advisory-database/tree/main/vulns/flask/PYSEC-2018-66.yaml",
+            "https://lists.debian.org/debian-lts-announce/2019/08/msg00025.html",
+            "https://nvd.nist.gov/vuln/detail/CVE-2018-1000656",
+            "https://security.netapp.com/advisory/ntap-20190221-0001",
+            "https://security.netapp.com/advisory/ntap-20190221-0001/",
+            "https://ubuntu.com/security/notices/USN-4378-1",
+            "https://usn.ubuntu.com/4378-1",
+            "https://usn.ubuntu.com/4378-1/",
+            "https://www.cve.org/CVERecord?id=CVE-2018-1000656"
+          ],
+          "PublishedDate": "2018-08-20T19:31:45.34Z",
+          "LastModifiedDate": "2024-11-21T03:40:20.45Z"
+        },
+        {
+          "VulnerabilityID": "CVE-2019-1010083",
+          "PkgName": "Flask",
+          "PkgIdentifier": {
+            "PURL": "pkg:pypi/flask@0.12",
+            "UID": "8bca23640d3637c7"
+          },
+          "InstalledVersion": "0.12",
+          "FixedVersion": "1.0",
+          "Status": "fixed",
+          "SeveritySource": "ghsa",
+          "PrimaryURL": "https://avd.aquasec.com/nvd/cve-2019-1010083",
+          "DataSource": {
+            "ID": "ghsa",
+            "Name": "GitHub Security Advisory pip",
+            "URL": "https://github.com/advisories?query=type%3Areviewed+ecosystem%3Apip"
+          },
+          "Fingerprint": "sha256:16d1f0796b046bc056f9d9274b25be18df909933670560e8e314f8de61bf631d",
+          "Title": "python-flask: unexpected memory usage can lead to denial of service via crafted encoded JSON data",
+          "Description": "The Pallets Project Flask before 1.0 is affected by: unexpected memory usage. The impact is: denial of service. The attack vector is: crafted encoded JSON data. The fixed version is: 1. NOTE: this may overlap CVE-2018-1000656.",
+          "Severity": "HIGH",
+          "VendorSeverity": {
+            "ghsa": 3,
+            "nvd": 3,
+            "redhat": 2
+          },
+          "CVSS": {
+            "ghsa": {
+              "V3Vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H",
+              "V3Score": 7.5
+            },
+            "nvd": {
+              "V2Vector": "AV:N/AC:L/Au:N/C:N/I:N/A:P",
+              "V3Vector": "CVSS:3.0/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H",
+              "V2Score": 5,
+              "V3Score": 7.5
+            },
+            "redhat": {
+              "V3Vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H",
+              "V3Score": 7.5
+            }
+          },
+          "References": [
+            "https://access.redhat.com/security/cve/CVE-2019-1010083",
+            "https://github.com/advisories/GHSA-5wv5-4vpf-pj6m",
+            "https://github.com/pallets/flask",
+            "https://github.com/pypa/advisory-database/tree/main/vulns/flask/PYSEC-2019-179.yaml",
+            "https://nvd.nist.gov/vuln/detail/CVE-2019-1010083",
+            "https://palletsprojects.com/blog/flask-1-0-released/",
+            "https://snyk.io/vuln/SNYK-PYTHON-FLASK-451637",
+            "https://www.cve.org/CVERecord?id=CVE-2019-1010083",
+            "https://www.palletsprojects.com/blog/flask-1-0-released",
+            "https://www.palletsprojects.com/blog/flask-1-0-released/"
+          ],
+          "PublishedDate": "2019-07-17T14:15:11.57Z",
+          "LastModifiedDate": "2024-11-21T04:17:57.66Z"
+        },
+        {
+          "VulnerabilityID": "CVE-2023-30861",
+          "PkgName": "Flask",
+          "PkgIdentifier": {
+            "PURL": "pkg:pypi/flask@0.12",
+            "UID": "8bca23640d3637c7"
+          },
+          "InstalledVersion": "0.12",
+          "FixedVersion": "2.3.2, 2.2.5",
+          "Status": "fixed",
+          "SeveritySource": "ghsa",
+          "PrimaryURL": "https://avd.aquasec.com/nvd/cve-2023-30861",
+          "DataSource": {
+            "ID": "ghsa",
+            "Name": "GitHub Security Advisory pip",
+            "URL": "https://github.com/advisories?query=type%3Areviewed+ecosystem%3Apip"
+          },
+          "Fingerprint": "sha256:263046f0d1c55d461bc606974bfd6f3e361bb08f1ce704d8d3294a10b738cd16",
+          "Title": "flask: Possible disclosure of permanent session cookie due to missing Vary: Cookie header",
+          "Description": "Flask is a lightweight WSGI web application framework. When all of the following conditions are met, a response containing data intended for one client may be cached and subsequently sent by the proxy to other clients. If the proxy also caches `Set-Cookie` headers, it may send one client's `session` cookie to other clients. The severity depends on the application's use of the session and the proxy's behavior regarding cookies. The risk depends on all these conditions being met.\n\n1. The application must be hosted behind a caching proxy that does not strip cookies or ignore responses with cookies.\n2. The application sets `session.permanent = True`\n3. The application does not access or modify the session at any point during a request.\n4. `SESSION_REFRESH_EACH_REQUEST` enabled (the default).\n5. The application does not set a `Cache-Control` header to indicate that a page is private or should not be cached.\n\nThis happens because vulnerable versions of Flask only set the `Vary: Cookie` header when the session is accessed or modified, not when it is refreshed (re-sent to update the expiration) without being accessed or modified. This issue has been fixed in versions 2.3.2 and 2.2.5.",
+          "Severity": "HIGH",
+          "CweIDs": [
+            "CWE-539"
+          ],
+          "VendorSeverity": {
+            "amazon": 3,
+            "ghsa": 3,
+            "nvd": 3,
+            "oracle-oval": 3,
+            "redhat": 3,
+            "ubuntu": 2
+          },
+          "CVSS": {
+            "ghsa": {
+              "V3Vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:N/A:N",
+              "V3Score": 7.5
+            },
+            "nvd": {
+              "V3Vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:N/A:N",
+              "V3Score": 7.5
+            },
+            "redhat": {
+              "V3Vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:N/A:N",
+              "V3Score": 7.5
+            }
+          },
+          "References": [
+            "https://access.redhat.com/security/cve/CVE-2023-30861",
+            "https://github.com/pallets/flask",
+            "https://github.com/pallets/flask/commit/70f906c51ce49c485f1d355703e9cc3386b1cc2b",
+            "https://github.com/pallets/flask/commit/8646edca6f47e2cd57464081b3911218d4734f8d (2.2.5)",
+            "https://github.com/pallets/flask/commit/8705dd39c4fa563ea0fe0bf84c85da8fcc98b88d (2.3.2)",
+            "https://github.com/pallets/flask/commit/afd63b16170b7c047f5758eb910c416511e9c965",
+            "https://github.com/pallets/flask/releases/tag/2.2.5",
+            "https://github.com/pallets/flask/releases/tag/2.3.2",
+            "https://github.com/pallets/flask/security/advisories/GHSA-m2qf-hxjv-5gpq",
+            "https://github.com/pypa/advisory-database/tree/main/vulns/flask/PYSEC-2023-62.yaml",
+            "https://linux.oracle.com/cve/CVE-2023-30861.html",
+            "https://linux.oracle.com/errata/ELSA-2023-12710.html",
+            "https://lists.debian.org/debian-lts-announce/2023/08/msg00024.html",
+            "https://nvd.nist.gov/vuln/detail/CVE-2023-30861",
+            "https://security.netapp.com/advisory/ntap-20230818-0006",
+            "https://security.netapp.com/advisory/ntap-20230818-0006/",
+            "https://ubuntu.com/security/notices/USN-6111-1",
+            "https://www.cve.org/CVERecord?id=CVE-2023-30861",
+            "https://www.debian.org/security/2023/dsa-5442"
+          ],
+          "PublishedDate": "2023-05-02T18:15:52.373Z",
+          "LastModifiedDate": "2024-11-21T08:00:59.623Z"
+        },
+        {
+          "VulnerabilityID": "CVE-2017-11424",
+          "PkgName": "PyJWT",
+          "PkgIdentifier": {
+            "PURL": "pkg:pypi/pyjwt@1.5.0",
+            "UID": "bb231c0d28e4ee4e"
+          },
+          "InstalledVersion": "1.5.0",
+          "FixedVersion": "1.5.1",
+          "Status": "fixed",
+          "SeveritySource": "ghsa",
+          "PrimaryURL": "https://avd.aquasec.com/nvd/cve-2017-11424",
+          "DataSource": {
+            "ID": "ghsa",
+            "Name": "GitHub Security Advisory pip",
+            "URL": "https://github.com/advisories?query=type%3Areviewed+ecosystem%3Apip"
+          },
+          "Fingerprint": "sha256:da7df3e1532ce1616fb0fd9b9827147c9b089241fb45f93d996cf12b6e017f3a",
+          "Title": "python-jwt: Incorrect handling of PEM-encoded public keys",
+          "Description": "In PyJWT 1.5.0 and below the `invalid_strings` check in `HMACAlgorithm.prepare_key` does not account for all PEM encoded public keys. Specifically, the PKCS1 PEM encoded format would be allowed because it is prefaced with the string `-----BEGIN RSA PUBLIC KEY-----` which is not accounted for. This enables symmetric/asymmetric key confusion attacks against users using the PKCS1 PEM encoded public keys, which would allow an attacker to craft JWTs from scratch.",
+          "Severity": "HIGH",
+          "VendorSeverity": {
+            "ghsa": 3,
+            "nvd": 3,
+            "redhat": 2,
+            "ubuntu": 2
+          },
+          "CVSS": {
+            "ghsa": {
+              "V3Vector": "CVSS:3.0/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:H/A:N",
+              "V3Score": 7.5
+            },
+            "nvd": {
+              "V2Vector": "AV:N/AC:L/Au:N/C:N/I:P/A:N",
+              "V3Vector": "CVSS:3.0/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:H/A:N",
+              "V2Score": 5,
+              "V3Score": 7.5
+            },
+            "redhat": {
+              "V3Vector": "CVSS:3.0/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:L/A:N",
+              "V3Score": 5.3
+            }
+          },
+          "References": [
+            "http://www.debian.org/security/2017/dsa-3979",
+            "https://access.redhat.com/security/cve/CVE-2017-11424",
+            "https://github.com/jpadilla/pyjwt",
+            "https://github.com/jpadilla/pyjwt/pull/277",
+            "https://github.com/pypa/advisory-database/tree/main/vulns/pyjwt/PYSEC-2017-24.yaml",
+            "https://nvd.nist.gov/vuln/detail/CVE-2017-11424",
+            "https://ubuntu.com/security/notices/USN-3407-1",
+            "https://www.cve.org/CVERecord?id=CVE-2017-11424"
+          ],
+          "PublishedDate": "2017-08-24T16:29:00.197Z",
+          "LastModifiedDate": "2025-04-20T01:37:25.86Z"
+        },
+        {
+          "VulnerabilityID": "CVE-2022-29217",
+          "PkgName": "PyJWT",
+          "PkgIdentifier": {
+            "PURL": "pkg:pypi/pyjwt@1.5.0",
+            "UID": "bb231c0d28e4ee4e"
+          },
+          "InstalledVersion": "1.5.0",
+          "FixedVersion": "2.4.0",
+          "Status": "fixed",
+          "SeveritySource": "ghsa",
+          "PrimaryURL": "https://avd.aquasec.com/nvd/cve-2022-29217",
+          "DataSource": {
+            "ID": "ghsa",
+            "Name": "GitHub Security Advisory pip",
+            "URL": "https://github.com/advisories?query=type%3Areviewed+ecosystem%3Apip"
+          },
+          "Fingerprint": "sha256:bd29561f26606257c688bf01317876cdfec1a2bd8bd033db3ce3f95c56e3d86a",
+          "Title": "python-jwt: Key confusion through non-blocklisted public key formats",
+          "Description": "PyJWT is a Python implementation of RFC 7519. PyJWT supports multiple different JWT signing algorithms. With JWT, an attacker submitting the JWT token can choose the used signing algorithm. The PyJWT library requires that the application chooses what algorithms are supported. The application can specify `jwt.algorithms.get_default_algorithms()` to get support for all algorithms, or specify a single algorithm. The issue is not that big as `algorithms=jwt.algorithms.get_default_algorithms()` has to be used. Users should upgrade to v2.4.0 to receive a patch for this issue. As a workaround, always be explicit with the algorithms that are accepted and expected when decoding.",
+          "Severity": "HIGH",
+          "CweIDs": [
+            "CWE-327"
+          ],
+          "VendorSeverity": {
+            "amazon": 2,
+            "cbl-mariner": 3,
+            "ghsa": 3,
+            "nvd": 3,
+            "redhat": 2,
+            "ubuntu": 2
+          },
+          "CVSS": {
+            "ghsa": {
+              "V3Vector": "CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:H/I:H/A:N",
+              "V3Score": 7.4
+            },
+            "nvd": {
+              "V2Vector": "AV:N/AC:L/Au:N/C:N/I:P/A:N",
+              "V3Vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:H/A:N",
+              "V2Score": 5,
+              "V3Score": 7.5
+            },
+            "redhat": {
+              "V3Vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:H/A:N",
+              "V3Score": 7.5
+            }
+          },
+          "References": [
+            "https://access.redhat.com/security/cve/CVE-2022-29217",
+            "https://github.com/jpadilla/pyjwt",
+            "https://github.com/jpadilla/pyjwt/commit/9c528670c455b8d948aff95ed50e22940d1ad3fc",
+            "https://github.com/jpadilla/pyjwt/commit/9c528670c455b8d948aff95ed50e22940d1ad3fc (2.4.0)",
+            "https://github.com/jpadilla/pyjwt/releases/tag/2.4.0",
+            "https://github.com/jpadilla/pyjwt/security/advisories/GHSA-ffqj-6fqr-9h24",
+            "https://github.com/pypa/advisory-database/tree/main/vulns/pyjwt/PYSEC-2022-202.yaml",
+            "https://lists.fedoraproject.org/archives/list/package-announce%40lists.fedoraproject.org/message/5PK7IQCBVNLYJEFTPHBBPFP72H4WUFNX/",
+            "https://lists.fedoraproject.org/archives/list/package-announce%40lists.fedoraproject.org/message/6HIYEYZRQEP6QTHT3EHH3RGFYJIHIMAO/",
+            "https://lists.fedoraproject.org/archives/list/package-announce@lists.fedoraproject.org/message/5PK7IQCBVNLYJEFTPHBBPFP72H4WUFNX",
+            "https://lists.fedoraproject.org/archives/list/package-announce@lists.fedoraproject.org/message/6HIYEYZRQEP6QTHT3EHH3RGFYJIHIMAO",
+            "https://nvd.nist.gov/vuln/detail/CVE-2022-29217",
+            "https://ubuntu.com/security/notices/USN-5526-1",
+            "https://ubuntu.com/security/notices/USN-5526-2",
+            "https://www.cve.org/CVERecord?id=CVE-2022-29217",
+            "https://www.vicarius.io/vsociety/posts/risky-algorithms-algorithm-confusion-in-pyjwt-cve-2022-29217"
+          ],
+          "PublishedDate": "2022-05-24T15:15:07.767Z",
+          "LastModifiedDate": "2024-11-21T06:58:44.463Z"
+        },
+        {
+          "VulnerabilityID": "CVE-2018-18074",
+          "PkgName": "requests",
+          "PkgIdentifier": {
+            "PURL": "pkg:pypi/requests@2.18.0",
+            "UID": "f97db59afaae3f35"
+          },
+          "InstalledVersion": "2.18.0",
+          "FixedVersion": "2.20.0",
+          "Status": "fixed",
+          "SeveritySource": "ghsa",
+          "PrimaryURL": "https://avd.aquasec.com/nvd/cve-2018-18074",
+          "DataSource": {
+            "ID": "ghsa",
+            "Name": "GitHub Security Advisory pip",
+            "URL": "https://github.com/advisories?query=type%3Areviewed+ecosystem%3Apip"
+          },
+          "Fingerprint": "sha256:1c392d6cb050a4f6302d208bda9d07c499808f1a9a98bb04d839a94d05846fa3",
+          "Title": "python-requests: Redirect from HTTPS to HTTP does not remove Authorization header",
+          "Description": "The Requests package before 2.20.0 for Python sends an HTTP Authorization header to an http URI upon receiving a same-hostname https-to-http redirect, which makes it easier for remote attackers to discover credentials by sniffing the network.",
+          "Severity": "HIGH",
+          "CweIDs": [
+            "CWE-522"
+          ],
+          "VendorSeverity": {
+            "alma": 2,
+            "amazon": 2,
+            "ghsa": 3,
+            "nvd": 3,
+            "oracle-oval": 2,
+            "photon": 3,
+            "redhat": 1,
+            "ubuntu": 2
+          },
+          "CVSS": {
+            "ghsa": {
+              "V3Vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:N/A:N",
+              "V3Score": 7.5
+            },
+            "nvd": {
+              "V2Vector": "AV:N/AC:L/Au:N/C:P/I:N/A:N",
+              "V3Vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:N/A:N",
+              "V2Score": 5,
+              "V3Score": 7.5
+            },
+            "redhat": {
+              "V3Vector": "CVSS:3.0/AV:A/AC:H/PR:N/UI:R/S:U/C:L/I:N/A:N",
+              "V3Score": 2.6
+            }
+          },
+          "References": [
+            "http://docs.python-requests.org/en/master/community/updates/#release-and-version-history",
+            "http://lists.opensuse.org/opensuse-security-announce/2019-07/msg00024.html",
+            "https://access.redhat.com/errata/RHSA-2019:2035",
+            "https://access.redhat.com/security/cve/CVE-2018-18074",
+            "https://bugs.debian.org/910766",
+            "https://errata.almalinux.org/8/ALSA-2020-1605.html",
+            "https://github.com/pypa/advisory-database/tree/main/vulns/requests/PYSEC-2018-28.yaml",
+            "https://github.com/requests/requests",
+            "https://github.com/requests/requests/commit/c45d7c49ea75133e52ab22a8e9e13173938e36ff",
+            "https://github.com/requests/requests/issues/4716",
+            "https://github.com/requests/requests/pull/4718",
+            "https://linux.oracle.com/cve/CVE-2018-18074.html",
+            "https://linux.oracle.com/errata/ELSA-2020-2081.html",
+            "https://nvd.nist.gov/vuln/detail/CVE-2018-18074",
+            "https://ubuntu.com/security/notices/USN-3790-1",
+            "https://ubuntu.com/security/notices/USN-3790-2",
+            "https://usn.ubuntu.com/3790-1",
+            "https://usn.ubuntu.com/3790-1/",
+            "https://usn.ubuntu.com/3790-2",
+            "https://usn.ubuntu.com/3790-2/",
+            "https://www.cve.org/CVERecord?id=CVE-2018-18074",
+            "https://www.oracle.com/security-alerts/cpujul2022.html"
+          ],
+          "PublishedDate": "2018-10-09T17:29:01.897Z",
+          "LastModifiedDate": "2024-11-21T03:55:26.53Z"
+        },
+        {
+          "VulnerabilityID": "CVE-2018-20060",
+          "PkgName": "urllib3",
+          "PkgIdentifier": {
+            "PURL": "pkg:pypi/urllib3@1.21",
+            "UID": "ab46f1c8125fa769"
+          },
+          "InstalledVersion": "1.21",
+          "FixedVersion": "1.23",
+          "Status": "fixed",
+          "SeveritySource": "ghsa",
+          "PrimaryURL": "https://avd.aquasec.com/nvd/cve-2018-20060",
+          "DataSource": {
+            "ID": "ghsa",
+            "Name": "GitHub Security Advisory pip",
+            "URL": "https://github.com/advisories?query=type%3Areviewed+ecosystem%3Apip"
+          },
+          "Fingerprint": "sha256:89d97d6c30d3a4677dd28345587d20934ba6d8a58ced5686a5be30fb002d61db",
+          "Title": "python-urllib3: Cross-host redirect does not remove Authorization header allow for credential exposure",
+          "Description": "urllib3 before version 1.23 does not remove the Authorization HTTP header when following a cross-origin redirect (i.e., a redirect that differs in host, port, or scheme). This can allow for credentials in the Authorization header to be exposed to unintended hosts or transmitted in cleartext.",
+          "Severity": "CRITICAL",
+          "VendorSeverity": {
+            "alma": 2,
+            "amazon": 2,
+            "ghsa": 4,
+            "nvd": 4,
+            "oracle-oval": 2,
+            "photon": 4,
+            "redhat": 2,
+            "ubuntu": 1
+          },
+          "CVSS": {
+            "ghsa": {
+              "V3Vector": "CVSS:3.0/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H",
+              "V3Score": 9.8
+            },
+            "nvd": {
+              "V2Vector": "AV:N/AC:L/Au:N/C:P/I:N/A:N",
+              "V3Vector": "CVSS:3.0/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H",
+              "V2Score": 5,
+              "V3Score": 9.8
+            },
+            "redhat": {
+              "V3Vector": "CVSS:3.0/AV:N/AC:H/PR:N/UI:R/S:U/C:H/I:N/A:N",
+              "V3Score": 5.3
+            }
+          },
+          "References": [
+            "http://lists.opensuse.org/opensuse-security-announce/2019-09/msg00039.html",
+            "https://access.redhat.com/errata/RHSA-2019:2272",
+            "https://access.redhat.com/security/cve/CVE-2018-20060",
+            "https://bugzilla.redhat.com/show_bug.cgi?id=1649153",
+            "https://errata.almalinux.org/8/ALSA-2020-1605.html",
+            "https://github.com/pypa/advisory-database/tree/main/vulns/urllib3/PYSEC-2018-32.yaml",
+            "https://github.com/urllib3/urllib3",
+            "https://github.com/urllib3/urllib3/blob/master/CHANGES.rst",
+            "https://github.com/urllib3/urllib3/commit/560bd227b90f74417ffaedebf5f8d05a8ee4f532",
+            "https://github.com/urllib3/urllib3/issues/1316",
+            "https://github.com/urllib3/urllib3/pull/1346",
+            "https://linux.oracle.com/cve/CVE-2018-20060.html",
+            "https://linux.oracle.com/errata/ELSA-2020-2081.html",
+            "https://lists.debian.org/debian-lts-announce/2021/06/msg00015.html",
+            "https://lists.fedoraproject.org/archives/list/package-announce%40lists.fedoraproject.org/message/5SJERZEJDSUYQP7BNBXMBHRHGY26HRZD",
+            "https://lists.fedoraproject.org/archives/list/package-announce%40lists.fedoraproject.org/message/5SJERZEJDSUYQP7BNBXMBHRHGY26HRZD/",
+            "https://lists.fedoraproject.org/archives/list/package-announce%40lists.fedoraproject.org/message/BXLAXHM3Z6DUCXZ7ZXZ2EAYJXWDCZFCT",
+            "https://lists.fedoraproject.org/archives/list/package-announce%40lists.fedoraproject.org/message/BXLAXHM3Z6DUCXZ7ZXZ2EAYJXWDCZFCT/",
+            "https://lists.fedoraproject.org/archives/list/package-announce%40lists.fedoraproject.org/message/XWP36YW3KSVLXDBY3QJKDYEPCIMN3VQZ",
+            "https://lists.fedoraproject.org/archives/list/package-announce%40lists.fedoraproject.org/message/XWP36YW3KSVLXDBY3QJKDYEPCIMN3VQZ/",
+            "https://lists.fedoraproject.org/archives/list/package-announce@lists.fedoraproject.org/message/5SJERZEJDSUYQP7BNBXMBHRHGY26HRZD",
+            "https://lists.fedoraproject.org/archives/list/package-announce@lists.fedoraproject.org/message/BXLAXHM3Z6DUCXZ7ZXZ2EAYJXWDCZFCT",
+            "https://lists.fedoraproject.org/archives/list/package-announce@lists.fedoraproject.org/message/XWP36YW3KSVLXDBY3QJKDYEPCIMN3VQZ",
+            "https://nvd.nist.gov/vuln/detail/CVE-2018-20060",
+            "https://security.netapp.com/advisory/ntap-20241227-0010",
+            "https://security.netapp.com/advisory/ntap-20241227-0010/",
+            "https://ubuntu.com/security/notices/USN-3990-1",
+            "https://usn.ubuntu.com/3990-1",
+            "https://usn.ubuntu.com/3990-1/",
+            "https://www.cve.org/CVERecord?id=CVE-2018-20060"
+          ],
+          "PublishedDate": "2018-12-11T17:29:00.38Z",
+          "LastModifiedDate": "2024-12-27T16:15:22.593Z"
+        },
+        {
+          "VulnerabilityID": "CVE-2019-11324",
+          "PkgName": "urllib3",
+          "PkgIdentifier": {
+            "PURL": "pkg:pypi/urllib3@1.21",
+            "UID": "ab46f1c8125fa769"
+          },
+          "InstalledVersion": "1.21",
+          "FixedVersion": "1.24.2",
+          "Status": "fixed",
+          "SeveritySource": "ghsa",
+          "PrimaryURL": "https://avd.aquasec.com/nvd/cve-2019-11324",
+          "DataSource": {
+            "ID": "ghsa",
+            "Name": "GitHub Security Advisory pip",
+            "URL": "https://github.com/advisories?query=type%3Areviewed+ecosystem%3Apip"
+          },
+          "Fingerprint": "sha256:bac0eee09eefc46d8545e2af24bad8a9c2ee61475f39ec0b0c485b5f90ccc946",
+          "Title": "python-urllib3: Certification mishandle when error should be thrown",
+          "Description": "The urllib3 library before 1.24.2 for Python mishandles certain cases where the desired set of CA certificates is different from the OS store of CA certificates, which results in SSL connections succeeding in situations where a verification failure is the correct outcome. This is related to use of the ssl_context, ca_certs, or ca_certs_dir argument.",
+          "Severity": "HIGH",
+          "CweIDs": [
+            "CWE-295"
+          ],
+          "VendorSeverity": {
+            "alma": 2,
+            "amazon": 2,
+            "ghsa": 3,
+            "nvd": 3,
+            "oracle-oval": 2,
+            "photon": 3,
+            "redhat": 2,
+            "ubuntu": 2
+          },
+          "CVSS": {
+            "ghsa": {
+              "V3Vector": "CVSS:3.0/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:H/A:N",
+              "V3Score": 7.5
+            },
+            "nvd": {
+              "V2Vector": "AV:N/AC:L/Au:N/C:N/I:P/A:N",
+              "V3Vector": "CVSS:3.0/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:H/A:N",
+              "V2Score": 5,
+              "V3Score": 7.5
+            },
+            "redhat": {
+              "V3Vector": "CVSS:3.0/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:H/A:N",
+              "V3Score": 7.5
+            }
+          },
+          "References": [
+            "http://lists.opensuse.org/opensuse-security-announce/2019-09/msg00039.html",
+            "http://lists.opensuse.org/opensuse-security-announce/2019-09/msg00041.html",
+            "http://www.openwall.com/lists/oss-security/2019/04/19/1",
+            "https://access.redhat.com/errata/RHSA-2019:3335",
+            "https://access.redhat.com/errata/RHSA-2019:3590",
+            "https://access.redhat.com/security/cve/CVE-2019-11324",
+            "https://errata.almalinux.org/8/ALSA-2020-1605.html",
+            "https://github.com/advisories/GHSA-mh33-7rrq-662w",
+            "https://github.com/pypa/advisory-database/tree/main/vulns/urllib3/PYSEC-2019-133.yaml",
+            "https://github.com/urllib3/urllib3",
+            "https://github.com/urllib3/urllib3/commit/1efadf43dc63317cd9eaa3e0fdb9e05ab07254b1",
+            "https://github.com/urllib3/urllib3/compare/a6ec68a...1efadf4",
+            "https://linux.oracle.com/cve/CVE-2019-11324.html",
+            "https://linux.oracle.com/errata/ELSA-2020-2068.html",
+            "https://lists.debian.org/debian-lts-announce/2021/06/msg00015.html",
+            "https://lists.debian.org/debian-lts-announce/2023/10/msg00012.html",
+            "https://lists.fedoraproject.org/archives/list/package-announce%40lists.fedoraproject.org/message/NKGPJLVLVYCL4L4B4G5TIOTVK4BKPG72/",
+            "https://lists.fedoraproject.org/archives/list/package-announce%40lists.fedoraproject.org/message/XOSA2NT4DUQDBEIWE6O7KKD24XND7TE2/",
+            "https://lists.fedoraproject.org/archives/list/package-announce@lists.fedoraproject.org/message/NKGPJLVLVYCL4L4B4G5TIOTVK4BKPG72",
+            "https://lists.fedoraproject.org/archives/list/package-announce@lists.fedoraproject.org/message/XOSA2NT4DUQDBEIWE6O7KKD24XND7TE2",
+            "https://nvd.nist.gov/vuln/detail/CVE-2019-11324",
+            "https://pypi.org/project/urllib3/1.24.2",
+            "https://ubuntu.com/security/notices/USN-3990-1",
+            "https://usn.ubuntu.com/3990-1",
+            "https://usn.ubuntu.com/3990-1/",
+            "https://www.cve.org/CVERecord?id=CVE-2019-11324",
+            "https://www.openwall.com/lists/oss-security/2019/04/17/3"
+          ],
+          "PublishedDate": "2019-04-18T21:29:00.883Z",
+          "LastModifiedDate": "2024-11-21T04:20:53.373Z"
+        },
+        {
+          "VulnerabilityID": "CVE-2023-43804",
+          "PkgName": "urllib3",
+          "PkgIdentifier": {
+            "PURL": "pkg:pypi/urllib3@1.21",
+            "UID": "ab46f1c8125fa769"
+          },
+          "InstalledVersion": "1.21",
+          "FixedVersion": "2.0.6, 1.26.17",
+          "Status": "fixed",
+          "SeveritySource": "ghsa",
+          "PrimaryURL": "https://avd.aquasec.com/nvd/cve-2023-43804",
+          "DataSource": {
+            "ID": "ghsa",
+            "Name": "GitHub Security Advisory pip",
+            "URL": "https://github.com/advisories?query=type%3Areviewed+ecosystem%3Apip"
+          },
+          "Fingerprint": "sha256:9cda5f0c641faa02d015f9204e92d0bdbdc8f0c34bd35452dc790d5ec5f48331",
+          "Title": "python-urllib3: Cookie request header isn't stripped during cross-origin redirects",
+          "Description": "urllib3 is a user-friendly HTTP client library for Python. urllib3 doesn't treat the `Cookie` HTTP header special or provide any helpers for managing cookies over HTTP, that is the responsibility of the user. However, it is possible for a user to specify a `Cookie` header and unknowingly leak information via HTTP redirects to a different origin if that user doesn't disable redirects explicitly. This issue has been patched in urllib3 version 1.26.17 or 2.0.5.",
+          "Severity": "HIGH",
+          "CweIDs": [
+            "CWE-200"
+          ],
+          "VendorSeverity": {
+            "alma": 2,
+            "amazon": 2,
+            "azure": 3,
+            "cbl-mariner": 2,
+            "ghsa": 3,
+            "nvd": 3,
+            "oracle-oval": 2,
+            "photon": 3,
+            "redhat": 2,
+            "rocky": 2,
+            "ubuntu": 2
+          },
+          "CVSS": {
+            "ghsa": {
+              "V3Vector": "CVSS:3.1/AV:N/AC:H/PR:H/UI:N/S:U/C:H/I:H/A:N",
+              "V3Score": 5.9
+            },
+            "nvd": {
+              "V3Vector": "CVSS:3.1/AV:N/AC:L/PR:L/UI:N/S:U/C:H/I:H/A:N",
+              "V3Score": 8.1
+            },
+            "redhat": {
+              "V3Vector": "CVSS:3.1/AV:N/AC:H/PR:H/UI:N/S:U/C:H/I:H/A:N",
+              "V3Score": 5.9
+            }
+          },
+          "References": [
+            "https://access.redhat.com/errata/RHSA-2024:2159",
+            "https://access.redhat.com/security/cve/CVE-2023-43804",
+            "https://bugzilla.redhat.com/2242493",
+            "https://bugzilla.redhat.com/show_bug.cgi?id=2158559",
+            "https://bugzilla.redhat.com/show_bug.cgi?id=2240059",
+            "https://bugzilla.redhat.com/show_bug.cgi?id=2242493",
+            "https://bugzilla.redhat.com/show_bug.cgi?id=2249755",
+            "https://bugzilla.redhat.com/show_bug.cgi?id=2257854",
+            "https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2022-40897",
+            "https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2022-48560",
+            "https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2022-48565",
+            "https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2023-43804",
+            "https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2024-22195",
+            "https://errata.almalinux.org/9/ALSA-2024-2159.html",
+            "https://errata.rockylinux.org/RLSA-2024:2987",
+            "https://github.com/pypa/advisory-database/tree/main/vulns/urllib3/PYSEC-2023-192.yaml",
+            "https://github.com/urllib3/urllib3",
+            "https://github.com/urllib3/urllib3/commit/01220354d389cd05474713f8c982d05c9b17aafb",
+            "https://github.com/urllib3/urllib3/commit/644124ecd0b6e417c527191f866daa05a5a2056d",
+            "https://github.com/urllib3/urllib3/security/advisories/GHSA-v845-jxx5-vc9f",
+            "https://linux.oracle.com/cve/CVE-2023-43804.html",
+            "https://linux.oracle.com/errata/ELSA-2024-2987.html",
+            "https://lists.debian.org/debian-lts-announce/2023/10/msg00012.html",
+            "https://lists.debian.org/debian-lts-announce/2024/12/msg00020.html",
+            "https://lists.fedoraproject.org/archives/list/package-announce@lists.fedoraproject.org/message/5F5CUBAN5XMEBVBZPHFITBLMJV5FIJJ5",
+            "https://lists.fedoraproject.org/archives/list/package-announce@lists.fedoraproject.org/message/5F5CUBAN5XMEBVBZPHFITBLMJV5FIJJ5/",
+            "https://lists.fedoraproject.org/archives/list/package-announce@lists.fedoraproject.org/message/I3PR7C6RJ6JUBQKIJ644DMIJSUP36VDY",
+            "https://lists.fedoraproject.org/archives/list/package-announce@lists.fedoraproject.org/message/I3PR7C6RJ6JUBQKIJ644DMIJSUP36VDY/",
+            "https://lists.fedoraproject.org/archives/list/package-announce@lists.fedoraproject.org/message/NDAGZXYJ7H2G3SB47M453VQVNAWKAEJJ",
+            "https://lists.fedoraproject.org/archives/list/package-announce@lists.fedoraproject.org/message/NDAGZXYJ7H2G3SB47M453VQVNAWKAEJJ/",
+            "https://nvd.nist.gov/vuln/detail/CVE-2023-43804",
+            "https://security.netapp.com/advisory/ntap-20241213-0007",
+            "https://security.netapp.com/advisory/ntap-20241213-0007/",
+            "https://ubuntu.com/security/notices/USN-6473-1",
+            "https://ubuntu.com/security/notices/USN-6473-2",
+            "https://www.cve.org/CVERecord?id=CVE-2023-43804",
+            "https://www.vicarius.io/vsociety/posts/cve-2023-43804-urllib3-vulnerability-3"
+          ],
+          "PublishedDate": "2023-10-04T17:15:10.163Z",
+          "LastModifiedDate": "2025-11-03T22:16:27.767Z"
+        },
+        {
+          "VulnerabilityID": "CVE-2025-66471",
+          "PkgName": "urllib3",
+          "PkgIdentifier": {
+            "PURL": "pkg:pypi/urllib3@1.21",
+            "UID": "ab46f1c8125fa769"
+          },
+          "InstalledVersion": "1.21",
+          "FixedVersion": "2.6.0",
+          "Status": "fixed",
+          "SeveritySource": "ghsa",
+          "PrimaryURL": "https://avd.aquasec.com/nvd/cve-2025-66471",
+          "DataSource": {
+            "ID": "ghsa",
+            "Name": "GitHub Security Advisory pip",
+            "URL": "https://github.com/advisories?query=type%3Areviewed+ecosystem%3Apip"
+          },
+          "Fingerprint": "sha256:340e2a4eff9f827f490c623460968348b757e1d143e0cac5969aa80904130f85",
+          "Title": "urllib3: urllib3 Streaming API improperly handles highly compressed data",
+          "Description": "urllib3 is a user-friendly HTTP client library for Python. Starting in version 1.0 and prior to 2.6.0, the Streaming API improperly handles highly compressed data. urllib3's streaming API is designed for the efficient handling of large HTTP responses by reading the content in chunks, rather than loading the entire response body into memory at once. When streaming a compressed response, urllib3 can perform decoding or decompression based on the HTTP Content-Encoding header (e.g., gzip, deflate, br, or zstd). The library must read compressed data from the network and decompress it until the requested chunk size is met. Any resulting decompressed data that exceeds the requested amount is held in an internal buffer for the next read operation. The decompression logic could cause urllib3 to fully decode a small amount of highly compressed data in a single operation. This can result in excessive resource consumption (high CPU usage and massive memory allocation for the decompressed data.",
+          "Severity": "HIGH",
+          "CweIDs": [
+            "CWE-409"
+          ],
+          "VendorSeverity": {
+            "amazon": 2,
+            "azure": 3,
+            "ghsa": 3,
+            "nvd": 3,
+            "redhat": 3,
+            "ubuntu": 2
+          },
+          "CVSS": {
+            "nvd": {
+              "V3Vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H",
+              "V3Score": 7.5
+            }
+          },
+          "References": [
+            "https://access.redhat.com/security/cve/CVE-2025-66471",
+            "https://github.com/urllib3/urllib3",
+            "https://github.com/urllib3/urllib3/commit/c19571de34c47de3a766541b041637ba5f716ed7",
+            "https://github.com/urllib3/urllib3/security/advisories/GHSA-2xpw-w6gg-jr37",
+            "https://nvd.nist.gov/vuln/detail/CVE-2025-66471",
+            "https://ubuntu.com/security/notices/USN-7927-1",
+            "https://ubuntu.com/security/notices/USN-7927-2",
+            "https://ubuntu.com/security/notices/USN-7927-3",
+            "https://www.cve.org/CVERecord?id=CVE-2025-66471",
+            "https://www.openwall.com/lists/oss-security/2025/12/05/4"
+          ],
+          "PublishedDate": "2025-12-05T17:16:04.4Z",
+          "LastModifiedDate": "2025-12-10T16:10:33.5Z"
+        }
+      ]
+    },
+    {
+      "Target": "scb-gitleaks-scan.yaml",
+      "Class": "config",
+      "Type": "kubernetes",
+      "MisconfSummary": {
+        "Successes": 10,
+        "Failures": 0
+      }
+    },
+    {
+      "Target": "scb-scan.yaml",
+      "Class": "config",
+      "Type": "kubernetes",
+      "MisconfSummary": {
+        "Successes": 10,
+        "Failures": 0
+      }
+    },
+    {
+      "Target": "scb-trivy-scan.yaml",
+      "Class": "config",
+      "Type": "kubernetes",
+      "MisconfSummary": {
+        "Successes": 10,
+        "Failures": 0
+      }
+    },
+    {
+      "Target": ".env",
+      "Class": "secret",
+      "Secrets": [
+        {
+          "RuleID": "stripe-secret-token",
+          "Category": "Stripe",
+          "Severity": "CRITICAL",
+          "Title": "Stripe Secret Key",
+          "StartLine": 1,
+          "EndLine": 1,
+          "Code": {
+            "Lines": [
+              {
+                "Number": 1,
+                "Content": "API_KEY=\"***************************\"",
+                "IsCause": true,
+                "Annotation": "",
+                "Truncated": false,
+                "Highlighted": "API_KEY=\"***************************\"",
+                "FirstCause": true,
+                "LastCause": true
+              },
+              {
+                "Number": 2,
+                "Content": "PASSWORD=\"SuperfdsafdsSecrfdgfsdgsfgsdffdehghghgt12dd3!\"",
+                "IsCause": false,
+                "Annotation": "",
+                "Truncated": false,
+                "Highlighted": "PASSWORD=\"SuperfdsafdsSecrfdgfsdgsfgsdffdehghghgt12dd3!\"",
+                "FirstCause": false,
+                "LastCause": false
+              }
+            ]
+          },
+          "Match": "API_KEY=\"***************************\"",
+          "Offset": 9
+        }
+      ]
+    },
+    {
+      "Target": "app.py",
+      "Class": "secret",
+      "Secrets": [
+        {
+          "RuleID": "stripe-secret-token",
+          "Category": "Stripe",
+          "Severity": "CRITICAL",
+          "Title": "Stripe Secret Key",
+          "StartLine": 39,
+          "EndLine": 39,
+          "Code": {
+            "Lines": [
+              {
+                "Number": 37,
+                "Content": "",
+                "IsCause": false,
+                "Annotation": "",
+                "Truncated": false,
+                "FirstCause": false,
+                "LastCause": false
+              },
+              {
+                "Number": 38,
+                "Content": "# 5\ufe0f\u20e3 Hardcoded secret",
+                "IsCause": false,
+                "Annotation": "",
+                "Truncated": false,
+                "Highlighted": "# 5\ufe0f\u20e3 Hardcoded secret",
+                "FirstCause": false,
+                "LastCause": false
+              },
+              {
+                "Number": 39,
+                "Content": "API_KEY = \"************************\"  # \u274c Semgrep: hardcoded secret",
+                "IsCause": true,
+                "Annotation": "",
+                "Truncated": false,
+                "Highlighted": "API_KEY = \"************************\"  # \u274c Semgrep: hardcoded secret",
+                "FirstCause": true,
+                "LastCause": true
+              },
+              {
+                "Number": 40,
+                "Content": "",
+                "IsCause": false,
+                "Annotation": "",
+                "Truncated": false,
+                "FirstCause": false,
+                "LastCause": false
+              }
+            ]
+          },
+          "Match": "API_KEY = \"************************\"  # \u274c Semgrep: hardcoded secret",
+          "Offset": 999
+        }
+      ]
+    }
+  ]
+}

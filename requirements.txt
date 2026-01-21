@@ -1,0 +1,7 @@
+fastmcp>=2.14.2
+requests==2.31.0
+mcp
+fastapi
+uvicorn
+requests
+pydantic

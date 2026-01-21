@@ -1,0 +1,13 @@
+
+
+Avances
+Tools implementadas
+
+
+Falta 
+Pruebas para contexto
+Corregir todas las funciones de contexto para implementar el first ai dev sec ops
+
+
+Acces Token de gitlab de prueb
+2oMyx3CB8ydUZbwGXk3J

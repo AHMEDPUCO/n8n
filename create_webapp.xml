@@ -1,0 +1,9 @@
+<ServiceRequest>
+  <data>
+    <WebApp>
+      <name>{{WEBAPP_NAME}}</name>
+      <url>{{WEBAPP_URL}}</url>
+  
+    </WebApp>
+  </data>
+</ServiceRequest>

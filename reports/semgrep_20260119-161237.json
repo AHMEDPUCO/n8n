@@ -1,0 +1,25 @@
+{
+  "version": "1.148.0",
+  "results": [],
+  "errors": [],
+  "paths": {
+    "scanned": []
+  },
+  "time": {
+    "rules": [],
+    "rules_parse_time": 0.9785029888153076,
+    "profiling_times": {
+      "config_time": 3.8204565048217773,
+      "core_time": 1.6576879024505615,
+      "ignores_time": 0.0019481182098388672,
+      "total_time": 5.498515605926514
+    },
+    "fixpoint_timeouts": [],
+    "targets": [],
+    "total_bytes": 0,
+    "max_memory_bytes": 726107456
+  },
+  "engine_requested": "OSS",
+  "skipped_rules": [],
+  "profiling_results": []
+}

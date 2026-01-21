@@ -1,0 +1,21 @@
+<ServiceRequest>
+  <data>
+    <Report>
+      <name><![CDATA[{{REPORT_NAME}}]]></name>
+      <format>XML</format>
+      <type>WAS_SCAN_REPORT</type>
+
+      <config>
+        <scanReport>
+          <target>
+            <scans>
+              <WasScan>
+                <id>{{SCAN_ID}}</id>
+              </WasScan>
+            </scans>
+          </target>
+        </scanReport>
+      </config>
+    </Report>
+  </data>
+</ServiceRequest>

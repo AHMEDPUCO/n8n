@@ -1,0 +1,164 @@
+version: '3.8'
+
+volumes:
+  db_storage:
+  n8n_storage:
+  dependency_check_data:
+
+networks:
+  n8n-network:
+    driver: bridge
+
+services:
+  # =========================
+  # Security Tools
+  # =========================
+  security-tools:
+    build:
+      context: .
+      dockerfile: Dockerfile.security-tools
+    container_name: security-tools
+    environment:
+      MODE: "rest"
+      HOST: "0.0.0.0"
+      PORT: "8088"
+
+      ZAP_URL: "http://zap:8080"
+      ZAP_API_KEY: ""
+
+      SCAN_TARGETS_DIR: "/scan-targets"
+      REPORTS_DIR: "/app/reports"
+      DEFECTDOJO_URL: ${DEFECTDOJO_URL}
+      DEFECTDOJO_API_KEY: ${DEFECTDOJO_API_KEY}
+      MCP_AUTH_TOKEN: ${MCP_AUTH_TOKEN}
+      MAX_CONCURRENCY: "2"
+      MAX_STDOUT_BYTES: "200000"
+      MAX_REPORT_READ_BYTES: "400000"
+
+      TRIVY_SKIP_DB_UPDATE: "false"
+      TRIVY_SCANNERS: "vuln,misconfig,secret"
+
+      SEMGRP_ALLOWLIST: "p/default,p/owasp-top-ten,p/security-audit"
+      ##Dependency Track##
+      DT_URL: ${DT_URL}
+      DT_API_KEY: ${DT_API_KEY}
+      DT_PROJECT_UUID: ${DT_PROJECT_UUID}
+      NVD_API_KEY: ${NVD_API_KEY}
+    volumes:
+      - ./scan-targets:/scan-targets        # ⬅️ RW compartido
+      - ./reports:/app/reports
+      - dependency_check_data:/opt/dependency-check/data
+    ports:
+      - "8088:8088"
+    depends_on:
+      zap:
+        condition: service_healthy
+    networks:
+      - n8n-network
+
+  # =========================
+  # OWASP ZAP
+  # =========================
+  zap:
+    image: ghcr.io/zaproxy/zaproxy:stable
+    container_name: zap
+    command:
+      - zap.sh
+      - -daemon
+      - -host
+      - 0.0.0.0
+      - -port
+      - "8080"
+      - -config
+      - api.disablekey=true
+      - -config
+      - api.addrs.addr.name=.*
+      - -config
+      - api.addrs.addr.regex=true
+    ports:
+      - "8080:8080"
+    healthcheck:
+      test: ["CMD", "curl", "-s", "http://localhost:8080"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+    networks:
+      - n8n-network
+
+  # =========================
+  # DefectDojo MCP
+  # =========================
+  defectdojo-mcp:
+    build:
+      context: .
+      dockerfile: Dockerfile.defectdojo-mcp
+    container_name: defectdojo-mcp
+    restart: unless-stopped
+    environment:
+      PORT: 8000
+      MCP_PATH: /mcp
+
+      DEFECTDOJO_URL: ${DEFECTDOJO_URL}
+      DEFECTDOJO_API_KEY: ${DEFECTDOJO_API_KEY}
+      MCP_AUTH_TOKEN: ${MCP_AUTH_TOKEN}
+
+    ports:
+      - "8001:8000"
+    networks:
+      - n8n-network
+
+  # =========================
+  # PostgreSQL (n8n)
+  # =========================
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_NON_ROOT_USER: ${POSTGRES_NON_ROOT_USER}
+      POSTGRES_NON_ROOT_PASSWORD: ${POSTGRES_NON_ROOT_PASSWORD}
+    volumes:
+      - db_storage:/var/lib/postgresql/data
+      - ./init-data.sh:/docker-entrypoint-initdb.d/init-data.sh
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - n8n-network
+
+  # =========================
+  # n8n (con git)
+  # =========================
+  n8n:
+    image: n8nio/n8n:latest
+    container_name: n8n
+    restart: unless-stopped
+    environment:
+      N8N_TRUST_PROXY: "true"
+      NODE_FUNCTION_ALLOW_BUILTIN: child_process  # ⬅️ AGREGA ESTA LÍNEA
+      NODE_FUNCTION_ALLOW_EXTERNAL: child_process #
+      DB_TYPE: postgresdb
+      DB_POSTGRESDB_HOST: postgres
+      DB_POSTGRESDB_PORT: 5432
+      DB_POSTGRESDB_DATABASE: ${POSTGRES_DB}
+      DB_POSTGRESDB_USER: ${POSTGRES_NON_ROOT_USER}
+      DB_POSTGRESDB_PASSWORD: ${POSTGRES_NON_ROOT_PASSWORD}
+
+      N8N_ENCRYPTION_KEY: ${N8N_ENCRYPTION_KEY}
+      WEBHOOK_URL: https://tribal-loren-nonsimilarly.ngrok-free.dev/
+      N8N_HOST: 0.0.0.0
+
+    ports:
+      - "5678:5678"
+    volumes:
+      - n8n_storage:/home/node/.n8n
+      - ./scan-targets:/scan-targets        # ⬅️ RW compartido
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - n8n-network

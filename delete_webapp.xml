@@ -1,0 +1,10 @@
+<ServiceRequest>
+  <filters>
+    <Criteria field="id" operator="EQUALS">{{WEBAPP_ID}}</Criteria>
+  </filters>
+  <data>
+    <WebApp>
+      <removeFromSubscription>true</removeFromSubscription>
+    </WebApp>
+  </data>
+</ServiceRequest>
