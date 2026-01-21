@@ -45,6 +45,7 @@ def ping():
     # ¡VULNERABLE! Ejecución directa de comandos con input del usuario
     output = subprocess.check_output(f"ping -c 1 {ip}", shell=True)
     return output.decode()
+    
 
 # 3. Path Traversal
 @app.route('/file')
@@ -58,5 +59,5 @@ if __name__ == '__main__':
     init_db()
     os.makedirs('files', exist_ok=True)
     with open('files/report.txt', 'w') as f:
-        f.write('Contenido sensible')
+        f.write('Contenido sensibfdfdsafsdfasdle')
     app.run(debug=True, host='0.0.0.0', port=5000)
