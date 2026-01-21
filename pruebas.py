@@ -21,7 +21,7 @@ def home():
     <ul>
         <li><a href="/search">SQL Injection</a></li>
         <li><a href="/ping">Command Injection</a></li>
-        <li><a href="/file?filename=report.txt">Path Traversal</a></li>
+        <li><a href="/file?filename=report.txt">Path Traversjjal</a></li>
     </ul>
     '''
 
@@ -59,5 +59,5 @@ if __name__ == '__main__':
     init_db()
     os.makedirs('files', exist_ok=True)
     with open('files/report.txt', 'w') as f:
-        f.write('Contenido sensibfdfdsafsdfasdle')
+        f.write('Contenido sensijjjjjjjjjjjjjjjjjjjjbfdfdsafsdfasdle')
     app.run(debug=True, host='0.0.0.0', port=5000)
