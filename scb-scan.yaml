@@ -1,0 +1,38 @@
+apiVersion: execution.securecodebox.io/v1
+kind: Scan
+metadata:
+  generateName: "semgrep-pruebas-"
+  namespace: scb
+  annotations:
+    defectdojo.securecodebox.io/product-name: "Mi App Vulnerable2 - Semgrep2"
+    defectdojo.securecodebox.io/engagement-name: "SEMGREP"
+    defectdojo.securecodebox.io/product-type-name: "USFQ-Apps"
+    defectdojo.securecodebox.io/engagement-version: "v1.0.0"
+    defectdojo.securecodebox.io/engagement-tags: "automated,daily"
+    defectdojo.securecodebox.io/engagement-deduplicate-on-engagement: "true"
+
+    defectdojo.securecodebox.io/test-title: "Semgrep - Scan Automatizado"
+    defectdojo.securecodebox.io/test-type: "Semgrep JSON Report"
+
+spec:
+  scanType: "semgrep"
+  parameters:
+    - "--config=p/ci"
+    - "/src"
+  volumes:
+    - name: source
+      emptyDir: {}
+  initContainers:
+    - name: clone-repo
+      image: alpine/git
+      command:
+        - /bin/sh
+        - -c
+        - |
+          git clone https://gitlab.com/ahmedpuco03/mi-app-vulnerable.git /src
+      volumeMounts:
+        - name: source
+          mountPath: /src
+  volumeMounts:
+    - name: source
+      mountPath: /src
