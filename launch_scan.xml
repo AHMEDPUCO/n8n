@@ -3,10 +3,7 @@
     <WasScan>
       <name>{{SCAN_NAME}}</name>
 
-      <!-- requerido -->
       <type>VULNERABILITY</type>
-
-      <!-- tu tenant: ONDEMAND / SCHEDULED / API -->
       <mode>ONDEMAND</mode>
 
       <target>
@@ -15,9 +12,7 @@
         </webApp>
       </target>
 
-      <profile>
-        <id>{{PROFILE_ID}}</id>
-      </profile>
+      {{PROFILE_XML}}
 
     </WasScan>
   </data>

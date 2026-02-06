@@ -1,2 +1,11 @@
+# Environment variables
 .env
-.requirements.txt
+
+# Runtime / persistent data
+n8n_data/
+postgres_data/
+reports/
+scan_targets/
+
+# Nginx files (configs, certs, cache, etc.)
+nginx/

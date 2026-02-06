@@ -16,7 +16,6 @@ from pydantic import BaseModel, ConfigDict
 from zapv2 import ZAPv2
 
 # MCP SDK (Official) - SSE
-#Librerias MCP
 from mcp.server import Server
 from mcp.server.sse import SseServerTransport
 import mcp.types as types
@@ -38,7 +37,6 @@ app = FastAPI(title="Security Tools (REST + MCP SSE)")
 
 # =========================
 # Optional token auth
-# Token para autenticación de requests MCP/REST
 # =========================
 MCP_AUTH_TOKEN = os.getenv("MCP_AUTH_TOKEN", "").strip()
 
@@ -109,12 +107,10 @@ class BaseIgnorantModel(BaseModel):
 
 # =========================
 # Helpers
-# Helpers generales reutilizables para varias herramientas
 # =========================
-# Revisa si un comando está disponible en el sistema
 def check_command(command: str) -> bool:
     return shutil.which(command) is not None
-# Trunca un string a un límite de bytes (UTF-8)
+
 def _truncate(s: str, limit: int) -> str:
     if not s:
         return s
@@ -122,7 +118,7 @@ def _truncate(s: str, limit: int) -> str:
     if len(b) <= limit:
         return s
     return b[:limit].decode("utf-8", errors="replace") + "\n...[TRUNCATED]..."
-# Resuelve y valida una ruta objetivo bajo SCAN_ROOT
+
 def resolve_target_path(target: str) -> Path:
     t = Path(target)
     if not t.is_absolute():
@@ -135,7 +131,7 @@ def resolve_target_path(target: str) -> Path:
     if not t.exists():
         raise HTTPException(status_code=404, detail=f"Target not found: {t}")
     return t
-# Guarda un reporte en REPORTS_ROOT
+
 def save_report(report_name: str, content: Any, fmt: str = "json") -> str:
     timestamp = time.strftime("%Y%m%d-%H%M%S")
     safe_name = "".join(c for c in report_name if c.isalnum() or c in ("-", "_"))
@@ -152,7 +148,7 @@ def save_report(report_name: str, content: Any, fmt: str = "json") -> str:
         with open(filepath, "w", encoding="utf-8") as f:
             f.write(str(content))
     return str(filepath)
-# Lista los reportes en REPORTS_ROOT
+
 def list_reports() -> List[Dict[str, Any]]:
     items = []
     for p in sorted(REPORTS_ROOT.glob("*")):
@@ -160,7 +156,7 @@ def list_reports() -> List[Dict[str, Any]]:
             stat = p.stat()
             items.append({"name": p.name, "size_bytes": stat.st_size, "modified_epoch": int(stat.st_mtime)})
     return items
-# Lee un reporte específico de REPORTS_ROOT
+
 def read_report(name: str) -> Dict[str, Any]:
     p = (REPORTS_ROOT / name).resolve()
     if not str(p).startswith(str(REPORTS_ROOT) + os.sep):
@@ -176,25 +172,18 @@ def read_report(name: str) -> Dict[str, Any]:
         return {"name": p.name, "format": "json", "data": json.loads(raw.decode("utf-8", errors="replace"))}
     except Exception:
         return {"name": p.name, "format": "text", "data": raw.decode("utf-8", errors="replace")}
-# Ejecuta un comando externo de forma asíncrona con timeout y captura de salida
-async def run_command(
-    command_args: List[str],
-    timeout: int = 300,
-    env: Optional[Dict[str, str]] = None,
-    cwd: Optional[str] = None,  
-) -> Dict[str, Any]:
+
+async def run_command(command_args: List[str], timeout: int = 300, env: Optional[Dict[str, str]] = None) -> Dict[str, Any]:
     async with _sema:
         start = time.time()
-        logger.info("RUN %s (cwd=%s)", " ".join(command_args), cwd)
+        logger.info("RUN %s", " ".join(command_args))
         try:
             proc = await asyncio.create_subprocess_exec(
                 *command_args,
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE,
                 env={**os.environ, **(env or {})},
-                cwd=cwd,  
             )
-
             try:
                 stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout=timeout)
             except asyncio.TimeoutError:
@@ -213,7 +202,7 @@ async def run_command(
             out_s = _truncate(stdout.decode("utf-8", errors="replace"), MAX_STDOUT_BYTES)
             err_s = _truncate(stderr.decode("utf-8", errors="replace"), MAX_STDOUT_BYTES)
 
-            resp = {
+            resp: Dict[str, Any] = {
                 "status": "success" if code == 0 else "error",
                 "code": code,
                 "stdout": out_s,
@@ -226,9 +215,7 @@ async def run_command(
                     resp["data"] = json.loads(out_s)
                 except json.JSONDecodeError:
                     resp["data"] = out_s.strip()
-
             return resp
-
         except FileNotFoundError:
             return {"status": "error", "code": 127, "message": "Command not found"}
         except Exception as e:
@@ -289,7 +276,7 @@ async def tool_reports_list() -> Dict[str, Any]:
 
 async def tool_reports_read(name: str) -> Dict[str, Any]:
     return {"status": "success", "report": read_report(name)}
-# Ejecuta Semgrep en el target con config permitida y procesa el resultado 
+
 async def tool_run_semgrep(target: str, config: str = "p/default", output_format: str = "summary", save_report_flag: bool = False) -> Dict[str, Any]:
     if not check_command("semgrep"):
         return {"status": "error", "message": "semgrep not installed"}
@@ -386,7 +373,7 @@ async def tool_run_semgrep(target: str, config: str = "p/default", output_format
         "report_path": report_path,
         "normalized_report": normalized,
     }
-# Ejecuta Trivy en el target (filesystem o image) y procesa el resultado
+
 async def tool_run_trivy_scan(
     target: str,
     scan_type: str = "filesystem",
@@ -512,28 +499,17 @@ async def tool_run_trivy_scan(
     return {"status": "success", "tool": "trivy", "target": target_desc, "issues_sample": sample, "report_path": report_path, "normalized_report": normalized}
 
 ####Herramientas contexto #############
-async def tool_get_changed_files(
-    project_path: str,
-    commit_sha: str,
-    save_report_flag: bool = False
-) -> Dict[str, Any]:
-
+async def tool_get_changed_files(project_path: str, commit_sha: str,save_report_flag: bool = False) -> Dict[str, Any]:
+    
     repo_path = resolve_target_path(project_path)
 
     cmd = ["git", "diff", "--name-only", f"{commit_sha}^", commit_sha]
-
-    data = await run_command(
-        cmd,
-        cwd=str(repo_path)  # ✅ CLAVE
-    )
-
+    data = await run_command(cmd, env={"PWD": str(SCAN_ROOT / repo_path)})
     files = data.get("stdout", "").splitlines()
-
     return {
         "files": files,
-        "languages": sorted({f.split(".")[-1] for f in files if "." in f})
+        "languages": list({f.split(".")[-1] for f in files if "." in f})
     }
-
 async def tool_analyze_project_type(target: str,save_report_flag: bool = False)-> Dict[str, Any]:
     tp = resolve_target_path(target)
     files = [p.name for p in tp.rglob("*") if p.is_file()]
@@ -705,292 +681,46 @@ async def tool_run_npm_audit(target: str, save_report_flag: bool = False) -> Dic
     tp = resolve_target_path(target)
     cmd = ["npm", "audit", "--json"]
     data = await run_command(cmd, timeout=300, env={"PWD": str(tp)})
-    parsed = data.get("data", {})
-    advisories = parsed.get("advisories", {}) or {}
-    normalized = {
-  "tool": "npm-audit",
-  "category": "SCA",
-  "scan_type": "NPM Audit Scan",
-  "target": str(tp),
-  "summary": {
-    "total_findings": len(advisories),
-    "critical": sum(1 for a in advisories.values() if a["severity"] == "critical"),
-    "high": sum(1 for a in advisories.values() if a["severity"] == "high"),
-    "medium": sum(1 for a in advisories.values() if a["severity"] == "moderate"),
-    "low": sum(1 for a in advisories.values() if a["severity"] == "low"),
-  },
-    "findings": [
-    {
-      "id": a.get("cves", [a["id"]])[0],
-      "title": a["title"],
-      "description": a["overview"],
-      "severity": a["severity"].upper(),
-      "location": {"dependency": a["module_name"]},
-      "recommendation": a.get("recommendation"),
-      "references": a.get("references", "").split("\n"),
-    }
-    for a in advisories.values()
-  ],
-}
-
     
     if save_report_flag and isinstance(data.get("data"), dict):
         report_path = save_report("npm_audit", data["data"], "json")
 
-    return {
-  "status": "success",
-  "tool": "npm-audit",
-  "scan_type": "NPM Audit Scan",
-  "report_path": report_path if save_report_flag else None,
-  "normalized_report": normalized,
-}
-
+    return await run_command(cmd, timeout=300, env={"PWD": str(tp)})
 
 async def tool_run_eslint(target: str, save_report_flag: bool = False) -> Dict[str, Any]:
     tp = resolve_target_path(target)
     cmd = ["eslint", ".", "-f", "json"]
-    data = await run_command(cmd, timeout=300, env={"CWD": str(tp)})
-    issues = data.get("data", [])
-    normalized = {
-  "tool": "eslint",
-  "category": "SAST",
-  "scan_type": "ESLint Scan",
-  "target": str(tp),
-  "summary": {
-    "total_findings": sum(len(f["messages"]) for f in issues),
-    "critical": 0,
-    "high": sum(1 for f in issues for m in f["messages"] if m["severity"] == 2),
-    "medium": sum(1 for f in issues for m in f["messages"] if m["severity"] == 1),
-    "low": 0,
-  },
-  "findings": [
-    {
-      "id": m["ruleId"],
-      "title": m["message"],
-      "description": m["message"],
-      "severity": "HIGH" if m["severity"] == 2 else "MEDIUM",
-      "location": {"file": f["filePath"], "line": m["line"]},
-      "recommendation": None,
-      "references": [],
-    }
-    for f in issues
-    for m in f["messages"]
-  ],
-}
-
+    data = await run_command(cmd, timeout=300, env={"PWD": str(tp)})
     if save_report_flag and isinstance(data.get("data"), list):
         report_path = save_report("eslint", data["data"], "json")
 
-    return {
-  "status": "success",
-  "tool": "eslint",
-  "scan_type": "ESLint Scan",
-  "report_path": report_path if save_report_flag else None,
-  "normalized_report": normalized,
-}
-
-import json
-from typing import Dict, Any, List
-
+    return await run_command(cmd, timeout=300, env={"PWD": str(tp)})
 async def tool_run_govulncheck(target: str, save_report_flag: bool = False) -> Dict[str, Any]:
     tp = resolve_target_path(target)
-
-    if not check_command("govulncheck"):
-        return {"status": "error", "message": "govulncheck not installed"}
-
-    cmd = ["govulncheck", "-json", "./..."]
-
-    # ✅ Corre dentro del repo
-    data = await run_command(cmd, timeout=300, cwd=str(tp))
-
-    stdout = data.get("stdout", "") or ""
-    stderr = data.get("stderr", "") or ""
-
-    # ✅ govulncheck -json suele ser NDJSON (muchos objetos JSON)
-    events: List[Any] = []
-    for line in stdout.splitlines():
-        line = line.strip()
-        if not line:
-            continue
-        try:
-            events.append(json.loads(line))
-        except json.JSONDecodeError:
-            # si hay líneas no-json, ignóralas
-            continue
-
-    # Extraer posibles "vulns" de diferentes formatos
-    vulns_found: List[dict] = []
-
-    def add_vuln(v: Any):
-        if isinstance(v, dict):
-            vulns_found.append(v)
-
-    for ev in events:
-        if not isinstance(ev, dict):
-            continue
-
-        # Formato A: {"vuln": {...}}
-        if "vuln" in ev:
-            add_vuln(ev.get("vuln"))
-
-        # Formato B: {"type":"vuln","data":{...}}
-        if ev.get("type") == "vuln":
-            add_vuln(ev.get("data"))
-
-        # Formato C (algunas versiones): {"Vulns":[...]} (menos común)
-        if "Vulns" in ev and isinstance(ev["Vulns"], list):
-            for v in ev["Vulns"]:
-                add_vuln(v)
-
-    normalized_findings = []
-    for v in vulns_found:
-        # súper defensivo: todo a string
-        osv_id = str(v.get("OSV") or v.get("osv") or v.get("id") or "unknown")
-        details = v.get("Details") or v.get("details") or v.get("Summary") or v.get("summary") or "Govulncheck finding"
-        module = v.get("Module") or v.get("module") or v.get("Package") or v.get("package") or "unknown"
-
-        refs = v.get("References") or v.get("references") or []
-        if not isinstance(refs, list):
-            refs = [str(refs)]
-
-        normalized_findings.append({
-            "id": osv_id,
-            "title": str(details)[:120],
-            "description": str(details),
-            "severity": "HIGH",
-            "location": {"dependency": str(module)},
-            "recommendation": None,
-            "references": refs,
-        })
-
-    normalized = {
-        "tool": "govulncheck",
-        "category": "SCA",
-        "scan_type": "Go Vuln Check",
-        "target": str(tp),
-        "summary": {
-            "total_findings": len(normalized_findings),
-            "critical": 0,
-            "high": len(normalized_findings),
-            "medium": 0,
-            "low": 0,
-        },
-        "findings": normalized_findings,
-    }
-
-    report_path = None
+    cmd = ["govulncheck", "-json","./..."]
+    data = await run_command(cmd, timeout=300, env={"PWD": str(tp)})
     if save_report_flag:
-        report_payload = {
-            "stdout": stdout,
-            "stderr": stderr,
-            "events": events,
-            "parsed_vulns": vulns_found,
-        }
-        report_path = save_report("govulncheck", report_payload, "json")
+        report_path = save_report("govulncheck", data["data"], "json")
 
-    return {
-        "status": "success" if data.get("status") == "success" else "error",
-        "tool": "govulncheck",
-        "scan_type": "Govulncheck Scanner",
-        "report_path": report_path,
-        "raw": {
-            "status": data.get("status"),
-            "code": data.get("code"),
-            "stdout": stdout,
-            "stderr": stderr,
-        },
-        "normalized_report": normalized,
-    }
-
-
+    return await run_command(cmd, timeout=300, env={"PWD": str(tp)})
 ## .NET Vulnerability Check
 async def tool_run_dotnet_vuln(target: str, save_report_flag: bool = False) -> Dict[str, Any]:
     tp = resolve_target_path(target)
     cmd = ["dotnet", "list", "package", "--include-transitive", "--vulnerable","--format", "json"]
-    
-    data = await run_command(cmd, timeout=300, env={"CWD": str(tp)})
-    projects = data.get("data", {}).get("projects", [])
-    normalized = {
-  "tool": "dotnet-vuln",
-  "category": "SCA",
-  "scan_type": "DotNet Scan",
-  "target": str(tp),
-  "summary": {
-    "total_findings": sum(len(p["vulnerablePackages"]) for p in projects),
-    "critical": 0,
-    "high": sum(len(p["vulnerablePackages"]) for p in projects),
-    "medium": 0,
-    "low": 0,
-  },
-  "findings": [
-    {
-      "id": v["severity"],
-      "title": v["packageName"],
-      "description": "Vulnerable NuGet package",
-      "severity": "HIGH",
-      "location": {"dependency": v["packageName"]},
-      "recommendation": v.get("resolvedVersion"),
-      "references": [],
-    }
-    for p in projects
-    for v in p["vulnerablePackages"]
-  ],
-}
-
+    data = await run_command(cmd, timeout=300, env={"PWD": str(tp)})
     if save_report_flag:
         report_path = save_report("dotnet_vuln", data["data"], "json")
 
-    return {
-  "status": "success",
-  "tool": "dotnet-vuln",
-  "scan_type": "DotNet Scan",
-  "report_path": report_path if save_report_flag else None,
-  "normalized_report": normalized,
-}
-
+    return await run_command(cmd, timeout=300, env={"PWD": str(tp)})
 
 ## Roslynator Analysis
 async def tool_run_roslynator(target: str, save_report_flag: bool = False) -> Dict[str, Any]:
     tp = resolve_target_path(target)
     cmd = ["roslynator", "analyze",".","--format","json"]
-    data = await run_command(cmd, timeout=300, env={"CWD": str(tp)})
-    issues = data.get("data", [])
-    normalized = {
-  "tool": "roslynator",
-  "category": "SAST",
-  "scan_type": "Roslynator Scan",
-  "target": str(tp),
-  "summary": {
-    "total_findings": len(issues),
-    "critical": 0,
-    "high": len(issues),
-    "medium": 0,
-    "low": 0,
-  },
-  "findings": [
-    {
-      "id": i["id"],
-      "title": i["message"],
-      "description": i["message"],
-      "severity": "HIGH",
-      "location": {"file": i["filePath"], "line": i["line"]},
-      "recommendation": None,
-      "references": [],
-    }
-    for i in issues
-  ],
-}
-
+    data = await run_command(cmd, timeout=300, env={"PWD": str(tp)})
     if save_report_flag:
         report_path = save_report("roslynator", data["data"], "json")
-    return {
-  "status": "success",
-  "tool": "roslynator",
-  "scan_type": "Roslynator Scan",
-  "report_path": report_path if save_report_flag else None,
-  "normalized_report": normalized,
-}
-
+    return await run_command(cmd, timeout=300, env={"PWD": str(tp)})
 ###CycloneDX###
 async def tool_generate_cyclonedx(
     target: str,
@@ -1270,7 +1000,6 @@ async def tool_clone_repo(
     target_dir = SCAN_ROOT / project_path / commit_sha
     target_dir.parent.mkdir(parents=True, exist_ok=True)
 
-    # Si ya existe, no reclonar
     if target_dir.exists():
         return {
             "status": "success",
@@ -1278,72 +1007,20 @@ async def tool_clone_repo(
             "target": str(target_dir),
         }
 
-    # --- Clone ---
-    clone_cmd = [
+    cmd = [
         "git", "clone",
-        "--depth", "2",
+        "--depth", "1",
         repo_url,
         str(target_dir),
     ]
 
-    clone_result = await run_command(clone_cmd, timeout=300)
+    data = await run_command(cmd, timeout=300)
 
-    if clone_result["status"] != "success":
-        return {
-            "status": "error",
-            "tool": "git-clone",
-            "target": str(target_dir),
-            "raw": clone_result,
-        }
-
-    # --- Detectar stack ---
-    tp = target_dir
-
-    is_node = (tp / "package.json").exists()
-    is_go = (tp / "go.mod").exists()
-    is_dotnet = bool(list(tp.glob("*.csproj")) or list(tp.glob("*.sln")))
-
-    # --- Instalar dependencias SOLO si aplica ---
-    deps_results = {}
-
-    if is_node and check_command("npm"):
-        deps_results["npm"] = await run_command(
-            ["npm", "ci"],
-            cwd=str(tp),
-            timeout=300
-        )
-
-    if is_go and check_command("go"):
-        await run_command(
-            ["go", "mod", "download"],
-            cwd=str(tp),
-            timeout=300
-        )
-        await run_command(
-            ["go", "mod", "tidy"],
-            cwd=str(tp),
-            timeout=300
-        )
-
-    if is_dotnet and check_command("dotnet"):
-        deps_results["dotnet"] = await run_command(
-            ["dotnet", "restore"],
-            cwd=str(tp),
-            timeout=300
-        )
-
-    # --- Resultado final ---
     return {
-        "status": "success",
+        "status": "success" if data["status"] == "success" else "error",
         "tool": "git-clone",
         "target": str(target_dir),
-        "stack_detected": {
-            "node": is_node,
-            "go": is_go,
-            "dotnet": is_dotnet,
-        },
-        "dependencies": deps_results,
-        "raw": clone_result,
+        "raw": data,
     }
 #############################3#############################
 async def tool_zap_job_cancel(job_id: str) -> Dict[str, Any]:
@@ -1500,7 +1177,7 @@ async def http_eslint(req: SimpleTargetReq):
 
 @app.post("/tools/govulncheck")
 async def http_govulncheck(req: SimpleTargetReq):
-    return await tool_run_govulncheck(req.target,save_report_flag=getattr(req,"save_report_flag",False))
+    return await tool_run_govulncheck(req.target)
 
 @app.post("/tools/dotnet-vuln")
 async def http_dotnet_vuln(req: SimpleTargetReq):
@@ -1689,19 +1366,19 @@ async def mcp_call_tool(name: str, arguments: Dict[str, Any]):
         return [types.TextContent(type="text", text=json.dumps(out))]
     if name == "run_eslint":
         args = SimpleTargetReq(**arguments)
-        out = await tool_run_eslint(args.target, save_report_flag=arguments.get("save_report_flag", False))
+        out = await tool_run_eslint(args.target)
         return [types.TextContent(type="text", text=json.dumps(out))]
     if name == "run_govulncheck":
         args = SimpleTargetReq(**arguments)
-        out = await tool_run_govulncheck(args.target, save_report_flag=arguments.get("save_report_flag", False))
+        out = await tool_run_govulncheck(args.target)
         return [types.TextContent(type="text", text=json.dumps(out))]
     if name == "run_dotnet_vuln":
         args = SimpleTargetReq(**arguments)
-        out = await tool_run_dotnet_vuln(args.target, save_report_flag=arguments.get("save_report_flag", False))
+        out = await tool_run_dotnet_vuln(args.target)
         return [types.TextContent(type="text", text=json.dumps(out))]
     if name == "run_roslynator":
         args = SimpleTargetReq(**arguments)
-        out = await tool_run_roslynator(args.target, save_report_flag=arguments.get("save_report_flag", False))
+        out = await tool_run_roslynator(args.target)
         return [types.TextContent(type="text", text=json.dumps(out))]
     
     #=================================================================#

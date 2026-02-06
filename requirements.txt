@@ -1,14 +1,7 @@
-<<<<<<< HEAD
 fastmcp>=2.14.2
 requests==2.31.0
 mcp
 fastapi
 uvicorn
-requests
 pydantic
-=======
-requests==2.18.0
-Flask==0.12
-PyJWT==1.5.0
-urllib3==1.21
->>>>>>> 8b91c802bb273d6fca12bd9eb6cc7f6d2495f5ea
+pdfplumber

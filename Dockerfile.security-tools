@@ -56,22 +56,22 @@ RUN curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
 # =========================
 # Go + govulncheck
 # =========================
-ENV GO_VERSION=1.22.1
-RUN curl -fsSL https://go.dev/dl/go${GO_VERSION}.linux-amd64.tar.gz \
-    | tar -C /usr/local -xz
-ENV PATH="/usr/local/go/bin:${PATH}"
+# --- Go (para govulncheck) ---
+RUN apt-get update && apt-get install -y golang-go && rm -rf /var/lib/apt/lists/*
 
+# Instalar govulncheck
 RUN go install golang.org/x/vuln/cmd/govulncheck@latest
+
+# Asegurar PATH (govulncheck queda en /root/go/bin)
+ENV PATH="/root/go/bin:${PATH}"
+
+
 # =========================
 # Java (Dependency-Check)
 # =========================
 RUN apt-get update && apt-get install -y openjdk-21-jre-headless \
  && rm -rf /var/lib/apt/lists/*
 
-
-# =========================
-# OWASP Dependency-Check
-# =========================
 # =========================
 # OWASP Dependency-Check
 # =========================
@@ -85,12 +85,17 @@ RUN curl -L -o /tmp/dc.zip \
 # =========================
 # .NET SDK + Roslynator
 # =========================
-RUN wget https://packages.microsoft.com/config/debian/12/packages-microsoft-prod.deb -O packages-microsoft-prod.deb \
- && dpkg -i packages-microsoft-prod.deb \
- && rm packages-microsoft-prod.deb \
+RUN apt-get update \
+ && apt-get install -y wget ca-certificates gnupg \
+ && mkdir -p /etc/apt/keyrings \
+ && wget -qO /etc/apt/keyrings/microsoft.gpg https://packages.microsoft.com/keys/microsoft.asc \
+ && chmod 644 /etc/apt/keyrings/microsoft.gpg \
+ && echo "deb [arch=amd64 signed-by=/etc/apt/keyrings/microsoft.gpg] https://packages.microsoft.com/debian/12/prod bookworm main" \
+    > /etc/apt/sources.list.d/microsoft-prod.list \
  && apt-get update \
  && apt-get install -y dotnet-sdk-8.0 \
  && rm -rf /var/lib/apt/lists/*
+
 
 RUN dotnet tool install -g roslynator.dotnet.cli
 ENV PATH="${PATH}:/root/.dotnet/tools"

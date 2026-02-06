@@ -1,3 +1,4 @@
+import base64
 import os
 import sys
 import json
@@ -18,6 +19,10 @@ from pydantic import BaseModel, Field, ConfigDict
 from mcp.server import Server
 from mcp.server.sse import SseServerTransport
 import mcp.types as types
+
+# PDF text extraction
+import io   
+import pdfplumber
 
 # =========================================================
 # Logging
@@ -60,8 +65,6 @@ QUALYS_KB_ENRICH_CVES = os.getenv("QUALYS_KB_ENRICH_CVES", "false").lower() in {
 QUALYS_KB_PATH = os.getenv("QUALYS_KB_PATH", "/api/2.0/fo/knowledge_base/vuln/")  # classic API
 QUALYS_KB_DETAILS = os.getenv("QUALYS_KB_DETAILS", "All")
 QUALYS_KB_MAX_IDS_PER_CALL = int(os.getenv("QUALYS_KB_MAX_IDS_PER_CALL", "200"))
-
-
 
 # =========================================================
 # FastAPI app (ONLY ONCE)
@@ -128,7 +131,7 @@ def qualys_post(path: str, xml_payload: str) -> bytes:
     url = f"{QUALYS_BASE_URL}{path}"
     r = requests.post(
         url,
-        data=xml_payload.encode("utf-8"),
+        data=xml_payload.encode("utf-8") if isinstance(xml_payload, str) else xml_payload,
         auth=(QUALYS_USER, QUALYS_PASS),
         headers={
             "X-Requested-With": "QualysAPI",
@@ -153,17 +156,94 @@ def qualys_get(url: str) -> bytes:
     if r.status_code >= 400:
         raise RuntimeError(f"Qualys HTTP {r.status_code}: {r.text}")
     return r.content
+
+# =========================================================
+# Qualys Download PDF report (blocking)
+# =========================================================
+def qualys_download_pdf_by_report_id(report_id: str) -> bytes:
+    return qualys_get(
+        f"{QUALYS_BASE_URL}/qps/rest/3.0/download/was/report/{report_id}"
+    )
+
+def qualys_download_pdf(scan_id: str, retries: int = 10, wait_sec: int = 15) -> bytes:
+    tpl = load_xml("create_scan_report_pdf.xml")
+    rep_xml = render(
+        tpl,
+        REPORT_NAME=f"REPORT-PDF-{scan_id}",
+        SCAN_ID=scan_id,
+    )
+
+    report_id = parse_id(
+        qualys_post("/qps/rest/3.0/create/was/report/", rep_xml)
+    )
+
+    for attempt in range(retries):
+        try:
+            pdf = qualys_get(
+                f"{QUALYS_BASE_URL}/qps/rest/3.0/download/was/report/{report_id}"
+            )
+            return pdf
+        except Exception as e:
+            if "not yet complete" in str(e):
+                logger.info(f"[Qualys] Report not ready, retry {attempt+1}/{retries}")
+                time.sleep(wait_sec)
+            else:
+                raise
+
+    raise RuntimeError("Qualys PDF report not ready after retries")
+
+def qualys_find_webapp_id_by_url(url: str) -> Optional[str]:
+    xml = qualys_post(
+        "/qps/rest/3.0/search/was/webapp/",
+        f"""
+        <ServiceRequest>
+          <filters>
+            <Criteria field="url" operator="EQUALS">{url}</Criteria>
+          </filters>
+        </ServiceRequest>
+        """
+    )
+    root = ET.fromstring(xml)
+    for el in root.findall(".//WebApp/id"):
+        if el.text and el.text.strip().isdigit():
+            return el.text.strip()
+    return None
+
+# =========================================================
+# Extract text from PDF (blocking)
+# =========================================================
+def extract_text_from_pdf(pdf_bytes: bytes) -> str:
+    text_parts: List[str] = []
+    with pdfplumber.open(io.BytesIO(pdf_bytes)) as pdf:
+        for page in pdf.pages:
+            t = page.extract_text()
+            if t:
+                text_parts.append(t)
+    return "\n".join(text_parts)
+
+def qualys_create_pdf_report(scan_id: str) -> str:
+    tpl = load_xml("create_scan_report_pdf.xml")
+    rep_xml = render(
+        tpl,
+        REPORT_NAME=f"REPORT-PDF-{scan_id}",
+        SCAN_ID=scan_id,
+    )
+
+    report_id = parse_id(
+        qualys_post("/qps/rest/3.0/create/was/report/", rep_xml)
+    )
+    return report_id
+
+# =========================================================
+# Qualys KB helpers
+# =========================================================
 def _chunk_list(items: List[str], size: int) -> List[List[str]]:
     return [items[i:i + size] for i in range(0, len(items), size)]
 
 def qualys_kb_qid_to_cves(qids: List[str]) -> Dict[str, List[str]]:
-    """
-    Calls Qualys KnowledgeBase API and returns mapping: { "QID": ["CVE-...", ...], ... }
-    """
     if not qids:
         return {}
 
-    # Dedup + keep only digits
     qids = sorted({q.strip() for q in qids if q and q.strip().isdigit()})
     if not qids:
         return {}
@@ -191,7 +271,6 @@ def qualys_kb_qid_to_cves(qids: List[str]) -> Dict[str, List[str]]:
 
         root = ET.fromstring(r.content)
 
-        # Parse: VULN_LIST/VULN entries
         for vuln in root.findall(".//VULN"):
             qid = (vuln.findtext("QID") or "").strip()
             if not qid:
@@ -203,16 +282,11 @@ def qualys_kb_qid_to_cves(qids: List[str]) -> Dict[str, List[str]]:
                     cves.append(cve_el.text.strip())
 
             if cves:
-                # Dedup per QID
                 mapping[qid] = sorted(set(cves))
 
     return mapping
 
 def extract_qids_from_qualys_was_report(report_xml: bytes) -> List[str]:
-    """
-    Best-effort extraction of QIDs from the Qualys WAS XML report.
-    We search for any <QID>...</QID> tags.
-    """
     root = ET.fromstring(report_xml)
     qids = []
     for el in root.findall(".//QID"):
@@ -221,10 +295,6 @@ def extract_qids_from_qualys_was_report(report_xml: bytes) -> List[str]:
     return sorted(set(qids))
 
 def inject_cves_into_qualys_was_report(report_xml: bytes, qid_to_cves: Dict[str, List[str]]) -> bytes:
-    """
-    Best-effort injection: for each element that has a child <QID>,
-    attach <CVE_ID_LIST><CVE_ID>...</CVE_ID>...</CVE_ID_LIST>.
-    """
     root = ET.fromstring(report_xml)
 
     for parent in root.iter():
@@ -236,7 +306,6 @@ def inject_cves_into_qualys_was_report(report_xml: bytes, qid_to_cves: Dict[str,
         if not cves:
             continue
 
-        # Avoid duplicating if already present
         if parent.find("CVE_ID_LIST") is not None:
             continue
 
@@ -245,6 +314,13 @@ def inject_cves_into_qualys_was_report(report_xml: bytes, qid_to_cves: Dict[str,
             ET.SubElement(cve_list_el, "CVE_ID").text = cve
 
     return ET.tostring(root, encoding="utf-8", xml_declaration=True)
+def scan_es_valido(report_xml: bytes) -> bool:
+    root = ET.fromstring(report_xml)
+    return not any(
+        el.text == "150111"
+        for el in root.findall(".//QID")
+        if el.text
+    )
 
 
 # =========================================================
@@ -271,29 +347,25 @@ def dojo_import_scan(xml_bytes: bytes, product: str, engagement: str):
     )
     r.raise_for_status()
     return r.json()
+
 # =========================================================
 # EPSS + tagging helpers (blocking)
 # =========================================================
 _CVE_RE = re.compile(r"\bCVE-\d{4}-\d{4,7}\b", re.IGNORECASE)
 
 def epss_lookup(cves: List[str]) -> Dict[str, Dict[str, float]]:
-    """
-    Returns { "CVE-....": {"epss": float, "percentile": float}, ... }
-    """
     cves = sorted({c.strip().upper() for c in cves if c and _CVE_RE.match(c.strip().upper())})
     if not cves:
         return {}
 
-    # FIRST API accepts comma-separated CVEs; keep request size reasonable
     url = "https://api.first.org/data/v1/epss"
     out: Dict[str, Dict[str, float]] = {}
 
-    # chunk by character limit (FIRST says ~2000 chars for cve param)
     chunk: List[str] = []
     total_len = 0
     for c in cves:
         add_len = len(c) + (1 if chunk else 0)
-        if total_len + add_len > 1800:  # safety margin
+        if total_len + add_len > 1800:
             r = requests.get(url, params={"cve": ",".join(chunk)}, timeout=60)
             r.raise_for_status()
             data = r.json().get("data", [])
@@ -317,9 +389,6 @@ def epss_lookup(cves: List[str]) -> Dict[str, Dict[str, float]]:
     return out
 
 def dojo_list_findings_by_test(test_id: int) -> List[Dict[str, Any]]:
-    """
-    Pull all findings for a given test_id (pagination supported).
-    """
     url = f"{DEFECTDOJO_URL}/api/v2/findings/"
     headers = {"Authorization": f"Token {DEFECTDOJO_API_KEY}"}
     findings: List[Dict[str, Any]] = []
@@ -340,13 +409,8 @@ def dojo_list_findings_by_test(test_id: int) -> List[Dict[str, Any]]:
     return findings
 
 def dojo_patch_finding_tags(finding_id: int, new_tags: List[str]) -> None:
-    """
-    Best-effort: PATCH tags on a finding.
-    IMPORTANT: confirm the correct field name in your instance swagger.
-    """
     url = f"{DEFECTDOJO_URL}/api/v2/findings/{finding_id}/"
     headers = {"Authorization": f"Token {DEFECTDOJO_API_KEY}"}
-
     r = requests.patch(url, headers=headers, json={"tags": new_tags}, timeout=60)
     r.raise_for_status()
 
@@ -357,9 +421,15 @@ def epss_band(epss_score: float) -> str:
         return "medium"
     return "low"
 
+#========================================================
+#PDF HELPER
+class CreateReportPdfRequest(BaseIgnorantModel):
+    scan_id: str
+
 # =========================================================
 # AppTracker Client (blocking)
 # =========================================================
+
 class AppTrackerAPIClient:
     def __init__(self):
         self.access_token: Optional[str] = None
@@ -426,34 +496,39 @@ class AppTrackerAPIClient:
             return resp
         return []
 
-    def search_apis_by_name(self, search_term: str) -> List[Dict[str, Any]]:
-        term = search_term.lower().strip()
-        return [a for a in self.get_all_apis() if term in (a.get("apiName") or "").lower() or term in (a.get("description") or "").lower()]
-    def get_all_api_variables(self) -> List[Dict[str, Any]]: 
-        variables_response = self.llamar_api("ApiVariable") 
+    def get_all_api_variables(self) -> List[Dict[str, Any]]:
+        variables_response = self.llamar_api("ApiVariable")
         if isinstance(variables_response, dict):
             return variables_response.get("data", [variables_response])
         if isinstance(variables_response, list):
             return variables_response
-        return []        
+        return []
 
-    def get_apis_with_variables(self) -> List[Dict[str, Any]]: 
-        apis = self.get_all_apis() 
-        all_vars = self.get_all_api_variables() 
-        api_vars_map: Dict[Any, List[Dict[str, Any]]] = {} 
-        for var in all_vars: 
-            a_id = var.get("apiId") 
-            if a_id is None: 
-                continue 
-            api_vars_map.setdefault(a_id, []).append(var) 
-        results = [] 
-        for api in apis: 
-            a_id = api.get("apiId") 
-            merged = dict(api) 
-            merged["variables"] = api_vars_map.get(a_id, []) 
-            merged["hasVariables"] = len(merged["variables"]) > 0 
-            results.append(merged) 
+    def get_apis_with_variables(self) -> List[Dict[str, Any]]:
+        apis = self.get_all_apis()
+        all_vars = self.get_all_api_variables()
+        api_vars_map: Dict[Any, List[Dict[str, Any]]] = {}
+        for var in all_vars:
+            a_id = var.get("apiId")
+            if a_id is None:
+                continue
+            api_vars_map.setdefault(a_id, []).append(var)
+
+        results = []
+        for api in apis:
+            a_id = api.get("apiId")
+            merged = dict(api)
+            merged["variables"] = api_vars_map.get(a_id, [])
+            merged["hasVariables"] = len(merged["variables"]) > 0
+            results.append(merged)
         return results
+
+    def search_apis_by_name(self, search_term: str) -> List[Dict[str, Any]]:
+        term = search_term.lower().strip()
+        return [
+            a for a in self.get_all_apis()
+            if term in (a.get("apiName") or "").lower() or term in (a.get("description") or "").lower()
+        ]
 
 apptracker_client = AppTrackerAPIClient()
 
@@ -462,11 +537,18 @@ apptracker_client = AppTrackerAPIClient()
 # =========================================================
 class LaunchScanRequest(BaseIgnorantModel):
     url: str
-    webapp_name: str = "MCP-WebApp"
+    webapp_name: str = ""
     scan_name: str = ""
     profile_id: str = ""
+
 class DojoEpssEnrichTestRequest(BaseIgnorantModel):
     test_id: int
+
+class DownloadReportPdfRequest(BaseIgnorantModel):
+    report_id: str
+
+class PdfExtractTextRequest(BaseIgnorantModel):
+    pdf_base64: str
 
 class CheckStatusRequest(BaseIgnorantModel):
     scan_id: str
@@ -485,6 +567,7 @@ class AppTrackerGetApiDetailsRequest(BaseIgnorantModel):
 
 class AppTrackerGetApiVariablesRequest(BaseIgnorantModel):
     api_id: int
+
 class AppTrackerGetApisWithVariablesRequest(BaseIgnorantModel):
     only_with_variables: bool = False
     limit: Optional[int] = None
@@ -505,6 +588,13 @@ async def list_tools() -> List[types.Tool]:
         types.Tool(name="qualys_was_launch_scan", description="(Qualys) Launch WAS scan", inputSchema=LaunchScanRequest.model_json_schema()),
         types.Tool(name="qualys_was_check_status", description="(Qualys) Check scan status", inputSchema=CheckStatusRequest.model_json_schema()),
         types.Tool(name="qualys_was_finalize_scan", description="(Qualys+Dojo) Download XML report + upload to Dojo", inputSchema=FinalizeScanRequest.model_json_schema()),
+        types.Tool(name="qualys_was_download_report_pdf", description="(Qualys) Generate and download WAS PDF report", inputSchema=DownloadReportPdfRequest.model_json_schema()),
+        types.Tool(name="pdf_extract_text", description="Extract plain text from a PDF (base64)", inputSchema=PdfExtractTextRequest.model_json_schema()),
+        types.Tool(
+    name="qualys_was_create_report_pdf",
+    description="(Qualys) Create WAS PDF report and return report_id",
+    inputSchema=CreateReportPdfRequest.model_json_schema()
+),
 
         # -------- APPTRACKER --------
         types.Tool(name="apptracker_get_all_apis", description="(AppTracker) List APIs", inputSchema=AppTrackerGetAllApisRequest.model_json_schema()),
@@ -512,8 +602,7 @@ async def list_tools() -> List[types.Tool]:
         types.Tool(name="apptracker_get_api_variables", description="(AppTracker) API variables", inputSchema=AppTrackerGetApiVariablesRequest.model_json_schema()),
         types.Tool(name="apptracker_search_apis", description="(AppTracker) Search APIs", inputSchema=AppTrackerSearchApisRequest.model_json_schema()),
         types.Tool(name="apptracker_get_apis_with_variables", description="(AppTracker) List APIs with variables", inputSchema=AppTrackerGetApisWithVariablesRequest.model_json_schema()),
-        types.Tool(name="defectdojo_epss_enrich_test",description="(Dojo+EPSS) For a given test_id: fetch findings, lookup EPSS for CVEs, and tag findings with epss_score/percentile/band",inputSchema=DojoEpssEnrichTestRequest.model_json_schema(),),
-
+        types.Tool(name="defectdojo_epss_enrich_test", description="(Dojo+EPSS) For a given test_id: fetch findings, lookup EPSS for CVEs, and tag findings with epss_score/percentile/band", inputSchema=DojoEpssEnrichTestRequest.model_json_schema()),
     ]
 
 @mcp.call_tool()
@@ -523,25 +612,106 @@ async def call_tool(name: str, arguments: Dict[str, Any]):
         arguments = dict(arguments)
 
     # =========================
+    # PDF
+    # =========================
+    if name == "pdf_extract_text":
+        args = PdfExtractTextRequest(**arguments)
+
+        def _run():
+            pdf_bytes = base64.b64decode(args.pdf_base64)
+            text = extract_text_from_pdf(pdf_bytes)
+            return {"text": text}
+
+        out = await run_in_threadpool(_run)
+        return [types.TextContent(type="text", text=json.dumps(out))]
+    if name == "qualys_was_create_report_pdf":
+        args = CreateReportPdfRequest(**arguments)
+
+        def _run():
+            report_id = qualys_create_pdf_report(args.scan_id)
+            return {"report_id": report_id}
+
+        out = await run_in_threadpool(_run)
+        return [types.TextContent(type="text", text=json.dumps(out))]
+    if name == "qualys_was_download_report_pdf":
+        args = DownloadReportPdfRequest(**arguments)
+
+        def _run():
+            pdf_bytes = qualys_download_pdf_by_report_id(args.report_id)
+            return {
+                "filename": f"qualys_report_{args.report_id}.pdf",
+                "pdf_base64": base64.b64encode(pdf_bytes).decode()
+            }
+
+        out = await run_in_threadpool(_run)
+        return [types.TextContent(type="text", text=json.dumps(out))]
+    # =========================
     # QUALYS
     # =========================
+    if name == "qualys_was_download_report_pdf":
+        args = DownloadReportPdfRequest(**arguments)
+
+        def _run():
+            pdf_bytes = qualys_download_pdf(args.scan_id)
+            return {
+                "filename": f"qualys_report_{args.scan_id}.pdf",
+                "pdf_base64": base64.b64encode(pdf_bytes).decode()
+            }
+
+        out = await run_in_threadpool(_run)
+        return [types.TextContent(type="text", text=json.dumps(out))]
+
     if name == "qualys_was_launch_scan":
         args = LaunchScanRequest(**arguments)
 
         def _run():
+        # 1️⃣ Create WebApp
             tpl = load_xml("create_webapp.xml")
-            webapp_xml = render(tpl, WEBAPP_NAME=f"{args.webapp_name}-{int(time.time())}", WEBAPP_URL=args.url)
-            webapp_id = parse_id(qualys_post("/qps/rest/3.0/create/was/webapp/", webapp_xml))
+            webapp_name = f"{args.webapp_name}-{int(time.time())}"
 
+
+            webapp_xml = render(
+                tpl,
+                WEBAPP_NAME=webapp_name,
+                WEBAPP_URL=args.url
+            )
+
+            webapp_id = qualys_find_webapp_id_by_url(args.url)
+            if not webapp_id:
+                webapp_id = parse_id(qualys_post("/qps/rest/3.0/create/was/webapp/", webapp_xml))
+
+
+            # 2️⃣ Launch Scan
             tpl2 = load_xml("launch_scan.xml")
-            pid = args.profile_id.strip() if args.profile_id.strip() else WAS_PROFILE_ID
-            scan_xml = render(tpl2, SCAN_NAME=args.scan_name or f"SCAN-{int(time.time())}", WEBAPP_ID=webapp_id, PROFILE_ID=pid)
-            scan_id = parse_id(qualys_post("/qps/rest/3.0/launch/was/wasscan/", scan_xml))
 
-            return {"webapp_id": webapp_id, "scan_id": scan_id}
+            profile_id = args.profile_id.strip() if args.profile_id and args.profile_id.strip() else None
+
+            profile_xml = (
+                f"<profile><id>{profile_id}</id></profile>"
+                if profile_id else ""
+            )
+
+            scan_xml = render(
+                tpl2,
+                SCAN_NAME=args.scan_name or f"SCAN-{int(time.time())}",
+                WEBAPP_ID=webapp_id,
+                PROFILE_XML=profile_xml
+            )
+
+            scan_id = parse_id(
+                qualys_post("/qps/rest/3.0/launch/was/wasscan/", scan_xml)
+            )
+
+            return {
+                "webapp_id": webapp_id,
+                "scan_id": scan_id,
+                "scan_name": args.scan_name,
+                "webapp_name": webapp_name
+            }
 
         out = await run_in_threadpool(_run)
         return [types.TextContent(type="text", text=json.dumps(out))]
+
 
     if name == "qualys_was_check_status":
         args = CheckStatusRequest(**arguments)
@@ -564,6 +734,10 @@ async def call_tool(name: str, arguments: Dict[str, Any]):
             report_id = parse_id(qualys_post("/qps/rest/3.0/create/was/report/", rep_xml))
 
             report_xml = qualys_get(f"{QUALYS_BASE_URL}/qps/rest/3.0/download/was/report/{report_id}")
+            if not scan_es_valido(report_xml):
+                raise RuntimeError("Scan FINISHED pero fallido: No Web Service (QID 150111)")
+
+
             if QUALYS_KB_ENRICH_CVES:
                 qids = extract_qids_from_qualys_was_report(report_xml)
                 logger.info(f"[Qualys KB] Extracted {len(qids)} QIDs from WAS report")
@@ -575,11 +749,9 @@ async def call_tool(name: str, arguments: Dict[str, Any]):
 
             dojo_resp = dojo_import_scan(report_xml, args.product_name, args.engagement_name)
 
-            # best-effort delete (don’t break pipeline)
             delete_warning = None
             if args.delete_scan:
                 try:
-                    # NOTE: replace with proper delete template if needed
                     qualys_post(f"/qps/rest/3.0/delete/was/wasscan/{args.scan_id}", "")
                 except Exception as e:
                     delete_warning = str(e)
@@ -616,15 +788,20 @@ async def call_tool(name: str, arguments: Dict[str, Any]):
         args = AppTrackerGetApiVariablesRequest(**arguments)
         out = await run_in_threadpool(lambda: {"api_id": args.api_id, "variables": apptracker_client.get_api_variables_by_api_id(args.api_id)})
         return [types.TextContent(type="text", text=json.dumps(out))]
-    
+
     if name == "apptracker_get_apis_with_variables":
         args = AppTrackerGetApisWithVariablesRequest(**arguments)
-        apis = apptracker_client.get_apis_with_variables()
-        if args.only_with_variables:
-            apis = [a for a in apis if a.get("hasVariables")]
-        if args.limit:
-            apis = apis[: args.limit]
-        return [types.TextContent(type="text", text=json.dumps({"count": len(apis), "apis": apis}, indent=2))]
+
+        def _run():
+            apis = apptracker_client.get_apis_with_variables()
+            if args.only_with_variables:
+                apis = [a for a in apis if a.get("hasVariables")]
+            if args.limit:
+                apis = apis[: args.limit]
+            return {"count": len(apis), "apis": apis}
+
+        out = await run_in_threadpool(_run)
+        return [types.TextContent(type="text", text=json.dumps(out, indent=2))]
 
     if name == "apptracker_search_apis":
         args = AppTrackerSearchApisRequest(**arguments)
@@ -637,72 +814,70 @@ async def call_tool(name: str, arguments: Dict[str, Any]):
 
         out = await run_in_threadpool(_run)
         return [types.TextContent(type="text", text=json.dumps(out))]
-    
+
+    # =========================
+    # DEFECTDOJO EPSS ENRICH
+    # =========================
     if name == "defectdojo_epss_enrich_test":
         args = DojoEpssEnrichTestRequest(**arguments)
 
-    def _run():
-        findings = dojo_list_findings_by_test(args.test_id)
+        def _run():
+            findings = dojo_list_findings_by_test(args.test_id)
 
-        # Collect CVEs from findings (robust: search common fields + fallback to title/desc)
-        finding_cves: Dict[int, List[str]] = {}
-        all_cves: List[str] = []
+            finding_cves: Dict[int, List[str]] = {}
+            all_cves: List[str] = []
 
-        for f in findings:
-            fid = f.get("id")
-            if not fid:
-                continue
+            for f in findings:
+                fid = f.get("id")
+                if not fid:
+                    continue
 
-            blob = " ".join([
-                json.dumps(f.get("vulnerability_ids", "")),
-                str(f.get("cve", "")),
-                str(f.get("title", "")),
-                str(f.get("description", "")),
-                str(f.get("mitigation", "")),
-            ])
-            cves = sorted({m.group(0).upper() for m in _CVE_RE.finditer(blob)})
-            if cves:
-                finding_cves[int(fid)] = cves
-                all_cves.extend(cves)
+                blob = " ".join([
+                    json.dumps(f.get("vulnerability_ids", "")),
+                    str(f.get("cve", "")),
+                    str(f.get("title", "")),
+                    str(f.get("description", "")),
+                    str(f.get("mitigation", "")),
+                ])
+                cves = sorted({m.group(0).upper() for m in _CVE_RE.finditer(blob)})
+                if cves:
+                    finding_cves[int(fid)] = cves
+                    all_cves.extend(cves)
 
-        epss_map = epss_lookup(all_cves)
+            epss_map = epss_lookup(all_cves)
 
-        updated = 0
-        skipped = 0
+            updated = 0
+            skipped = 0
 
-        for fid, cves in finding_cves.items():
-            # Use the max EPSS among CVEs for tagging (simple + useful)
-            scores = [epss_map.get(c, {}).get("epss", 0.0) for c in cves]
-            pcts = [epss_map.get(c, {}).get("percentile", 0.0) for c in cves]
-            if not scores:
-                skipped += 1
-                continue
+            for fid, cves in finding_cves.items():
+                scores = [epss_map.get(c, {}).get("epss", 0.0) for c in cves]
+                pcts = [epss_map.get(c, {}).get("percentile", 0.0) for c in cves]
+                if not scores:
+                    skipped += 1
+                    continue
 
-            max_score = float(max(scores))
-            max_pct = float(max(pcts)) if pcts else 0.0
+                max_score = float(max(scores))
+                max_pct = float(max(pcts)) if pcts else 0.0
 
-            tags = [
-                f"epss_score:{max_score:.4f}",
-                f"epss_pct:{max_pct:.4f}",
-                f"epss_band:{epss_band(max_score)}",
-            ]
+                tags = [
+                    f"epss_score:{max_score:.4f}",
+                    f"epss_pct:{max_pct:.4f}",
+                    f"epss_band:{epss_band(max_score)}",
+                ]
 
-            # Patch tags (your instance must support 'tags' on findings)
-            dojo_patch_finding_tags(fid, tags)
-            updated += 1
+                dojo_patch_finding_tags(fid, tags)
+                updated += 1
 
-        return {
-            "test_id": args.test_id,
-            "findings_total": len(findings),
-            "findings_with_cves": len(finding_cves),
-            "updated": updated,
-            "skipped": skipped,
-        }
+            return {
+                "test_id": args.test_id,
+                "findings_total": len(findings),
+                "findings_with_cves": len(finding_cves),
+                "updated": updated,
+                "skipped": skipped,
+            }
 
-    out = await run_in_threadpool(_run)
-    return [types.TextContent(type="text", text=json.dumps(out))]
-
-        
+        out = await run_in_threadpool(_run)
+        return [types.TextContent(type="text", text=json.dumps(out))]
 
     raise ValueError(f"Unknown tool: {name}")
 
@@ -724,7 +899,6 @@ async def messages(request: Request):
 # Main
 # =========================================================
 if __name__ == "__main__":
-    # Qualys templates required for Qualys tools
     needed = ["create_webapp.xml", "launch_scan.xml", "create_scan_report_xml.xml", "create_scan_report_pdf.xml"]
     missing = [f for f in needed if not os.path.exists(os.path.join(MCP_XML_DIR, f))]
     if missing:
