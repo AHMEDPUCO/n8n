@@ -1,0 +1,1028 @@
+{
+  "name": "Push → AI Review + DevSecOps Tools → Correlation → Commit Comment",
+  "nodes": [
+    {
+      "parameters": {
+        "owner": "ahmedpuco03",
+        "repository": "mi-app-vulnerable",
+        "events": [
+          "push"
+        ]
+      },
+      "type": "n8n-nodes-base.gitlabTrigger",
+      "typeVersion": 1,
+      "position": [
+        1824,
+        1104
+      ],
+      "id": "114f9ee6-4080-461c-b556-c252e973d635",
+      "name": "GitLab Trigger (Push)",
+      "webhookId": "0444a10e-6b50-47d8-ac39-da44f24c4edc",
+      "credentials": {
+        "gitlabApi": {
+          "id": "UObGsXqUVQ5GQh1o",
+          "name": "GitLab account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const item = items[0].json;\nconst payload = Array.isArray(item) ? item[0] : item;\nconst body = payload.body || payload;\nreturn [{\n  json: {\n    body,\n    projectPath: body.project?.path_with_namespace,\n    projectId: body.project?.id || body.project_id,\n    repoHttp: body.project?.git_http_url,\n    ref: body.ref,\n    before: body.before,\n    after: body.after,\n    commitUrl: body.commits?.[body.commits.length - 1]?.url,\n    authorEmail: body.user_email || body.commits?.[body.commits.length - 1]?.author?.email || null,\n    authorName: body.user_name || body.commits?.[body.commits.length - 1]?.author?.name || null,\n    commits: body.commits || []\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2048,
+        1104
+      ],
+      "id": "e3e55793-8c36-4180-a924-3f030a2d5e39",
+      "name": "Normalize Push Payload"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "cond_main_branch",
+              "leftValue": "={{ $json.ref }}",
+              "rightValue": "=refs/heads/main",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        2272,
+        1104
+      ],
+      "id": "3de8c2ec-2048-4a0e-8a02-20a7a09ed1ac",
+      "name": "IF Branch == main"
+    },
+    {
+      "parameters": {
+        "url": "=https://gitlab.com/api/v4/projects/{{ $json.projectId }}/repository/compare?from={{ $json.before }}&to={{ $json.after }}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "gitlabApi",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        2496,
+        1104
+      ],
+      "id": "2560be93-4ab8-4b4e-af93-abe1476f7bf3",
+      "name": "GitLab Compare (before→after)",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "3StpfyvYHNC9fvRh",
+          "name": "Header Auth account 3"
+        },
+        "gitlabApi": {
+          "id": "UObGsXqUVQ5GQh1o",
+          "name": "GitLab account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const compare = items[0].json;\nconst diffs = compare.diffs || [];\nconst maxChars = 12000;\nlet text = diffs.map(d => {\n  const file = `${d.new_path || d.old_path || 'unknown_file'}`;\n  const header = `\\n\\n=== FILE: ${file} ===\\n`;\n  return header + (d.diff || '');\n}).join('');\nif (text.length > maxChars) text = text.slice(0, maxChars) + \"\\n\\n...[TRUNCATED]...\";\nreturn [{ json: { ...$json, compare, diffsCount: diffs.length, unifiedDiff: text } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2720,
+        1104
+      ],
+      "id": "bd7b1ee8-6ad1-4b8e-8d23-d9305171fc0f",
+      "name": "Build Unified Diff"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "cond_has_diffs",
+              "leftValue": "={{ $json.diffsCount }}",
+              "rightValue": 0,
+              "operator": {
+                "type": "number",
+                "operation": "gt"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        2944,
+        1104
+      ],
+      "id": "590f6ef4-4cab-47b6-b5d9-a6a32a2bb23d",
+      "name": "IF diffsCount > 0"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=\nCompare URL: {{ $json.compare.web_url }}\n\nTarea:\nAnaliza el DIFF y devuelve:\n1) Resumen (2-4 bullets)\n2) Riesgos / bugs / seguridad (bullets)\n3) Recomendaciones concretas (bullets)\n4) Severidad: LOW/MED/HIGH + razón breve\n\nDIFF:\n{{ $json.unifiedDiff }}\n",
+        "options": {
+          "systemMessage": "Eres un revisor de código y analista de riesgos para cambios en repositorios GitLab. Entrega resultados claros, accionables y cortos."
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        4208,
+        704
+      ],
+      "id": "08b4946d-4ed7-45bb-8992-50a011cf5d42",
+      "name": "AI Push Review"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "set_repoPath",
+              "name": "repoPath",
+              "value": "={{ $('GitLab Trigger (Push)').item.json.body.project.path_with_namespace }}",
+              "type": "string"
+            },
+            {
+              "id": "set_commit",
+              "name": "commit",
+              "value": "={{ $('GitLab Trigger (Push)').item.json.body.after }}",
+              "type": "string"
+            },
+            {
+              "id": "set_repoHttp",
+              "name": "repoHttp",
+              "value": "={{ $('GitLab Trigger (Push)').item.json.body.project.git_http_url }}",
+              "type": "string"
+            },
+            {
+              "id": "set_zapTarget",
+              "name": "zapTarget",
+              "value": "https://demo.owasp-juice.shop",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        3200,
+        1344
+      ],
+      "id": "e0a40821-d495-4af9-b30b-7a7628f0c23e",
+      "name": "Set Toolchain Fields"
+    },
+    {
+      "parameters": {
+        "serverTransport": "sse",
+        "endpointUrl": "http://security-tools:8088/sse",
+        "authentication": "headerAuth",
+        "tool": {
+          "__rl": true,
+          "value": "clone_repository",
+          "mode": "list",
+          "cachedResultName": "clone_repository"
+        },
+        "parameters": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "repo_url": "={{ $json.repoHttp }}",
+            "project_path": "={{ $json.repoPath }}",
+            "commit_sha": "={{ $json.commit }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "repo_url",
+              "displayName": "repo_url",
+              "defaultMatch": false,
+              "required": true,
+              "display": true,
+              "type": "string",
+              "removed": false
+            },
+            {
+              "id": "project_path",
+              "displayName": "project_path",
+              "defaultMatch": false,
+              "required": true,
+              "display": true,
+              "type": "string",
+              "removed": false
+            },
+            {
+              "id": "commit_sha",
+              "displayName": "commit_sha",
+              "defaultMatch": false,
+              "required": true,
+              "display": true,
+              "type": "string",
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.mcpClient",
+      "typeVersion": 1,
+      "position": [
+        3392,
+        1408
+      ],
+      "id": "daec9ce0-26a4-4d44-adbf-dd33a48bb215",
+      "name": "MCP: Clone Repository",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "aEL2psVJ2PxnHw9b",
+          "name": "Header Auth account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "serverTransport": "sse",
+        "endpointUrl": "http://security-tools:8088/sse",
+        "authentication": "headerAuth",
+        "tool": {
+          "__rl": true,
+          "value": "run_semgrep",
+          "mode": "list",
+          "cachedResultName": "run_semgrep"
+        },
+        "parameters": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "target": "={{ $json.content[0].text.target }}",
+            "save_report_flag": true,
+            "config": "p/owasp-top-ten",
+            "output_format": "detailed"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "target",
+              "displayName": "Target",
+              "defaultMatch": false,
+              "required": true,
+              "display": true,
+              "type": "string",
+              "removed": false
+            },
+            {
+              "id": "config",
+              "displayName": "Config",
+              "defaultMatch": false,
+              "required": false,
+              "display": true,
+              "type": "string",
+              "removed": false
+            },
+            {
+              "id": "output_format",
+              "displayName": "Output Format",
+              "defaultMatch": false,
+              "required": false,
+              "display": true,
+              "type": "string",
+              "removed": false
+            },
+            {
+              "id": "save_report_flag",
+              "displayName": "Save Report Flag",
+              "defaultMatch": false,
+              "required": false,
+              "display": true,
+              "type": "boolean",
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.mcpClient",
+      "typeVersion": 1,
+      "position": [
+        3616,
+        1024
+      ],
+      "id": "0335597c-2a91-4149-b282-784ec1487140",
+      "name": "MCP: Semgrep",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "aEL2psVJ2PxnHw9b",
+          "name": "Header Auth account"
+        }
+      },
+      "disabled": true
+    },
+    {
+      "parameters": {
+        "serverTransport": "sse",
+        "endpointUrl": "http://security-tools:8088/sse",
+        "authentication": "headerAuth",
+        "tool": {
+          "__rl": true,
+          "value": "run_trivy_scan",
+          "mode": "list",
+          "cachedResultName": "run_trivy_scan"
+        },
+        "parameters": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "target": "={{ $json.content[0].text.target }}",
+            "save_report_flag": true
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "target",
+              "displayName": "Target",
+              "defaultMatch": false,
+              "required": true,
+              "display": true,
+              "type": "string",
+              "removed": false
+            },
+            {
+              "id": "scan_type",
+              "displayName": "Scan Type",
+              "defaultMatch": false,
+              "required": false,
+              "display": true,
+              "type": "string",
+              "removed": false
+            },
+            {
+              "id": "severity_filter",
+              "displayName": "Severity Filter",
+              "defaultMatch": false,
+              "required": false,
+              "display": true,
+              "type": "string",
+              "removed": true
+            },
+            {
+              "id": "output_format",
+              "displayName": "Output Format",
+              "defaultMatch": false,
+              "required": false,
+              "display": true,
+              "type": "string",
+              "removed": true
+            },
+            {
+              "id": "save_report_flag",
+              "displayName": "Save Report Flag",
+              "defaultMatch": false,
+              "required": false,
+              "display": true,
+              "type": "boolean",
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.mcpClient",
+      "typeVersion": 1,
+      "position": [
+        3616,
+        1216
+      ],
+      "id": "d20472ec-9588-4e96-9288-e9ac5aa15a75",
+      "name": "MCP: Trivy",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "aEL2psVJ2PxnHw9b",
+          "name": "Header Auth account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "serverTransport": "sse",
+        "endpointUrl": "http://security-tools:8088/sse",
+        "authentication": "headerAuth",
+        "tool": {
+          "__rl": true,
+          "mode": "list",
+          "value": "run_gitleaks"
+        },
+        "parameters": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "target": "={{ $json.content[0].text.target }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "target",
+              "displayName": "Target",
+              "defaultMatch": false,
+              "required": true,
+              "display": true,
+              "type": "string",
+              "removed": false
+            },
+            {
+              "id": "save_report_flag",
+              "displayName": "Save Report Flag",
+              "defaultMatch": false,
+              "required": false,
+              "display": true,
+              "type": "boolean",
+              "removed": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.mcpClient",
+      "typeVersion": 1,
+      "position": [
+        3616,
+        1408
+      ],
+      "id": "6a35cefd-5f88-4823-a0e4-fce63d9829aa",
+      "name": "MCP: Gitleaks",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "aEL2psVJ2PxnHw9b",
+          "name": "Header Auth account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "serverTransport": "sse",
+        "endpointUrl": "http://security-tools:8088/sse",
+        "authentication": "headerAuth",
+        "tool": {
+          "__rl": true,
+          "value": "run_eslint",
+          "mode": "list",
+          "cachedResultName": "run_eslint"
+        },
+        "parameters": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "target": "={{ $json.content[0].text.target }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "target",
+              "displayName": "Target",
+              "defaultMatch": false,
+              "required": true,
+              "display": true,
+              "type": "string",
+              "removed": false
+            },
+            {
+              "id": "save_report_flag",
+              "displayName": "Save Report Flag",
+              "defaultMatch": false,
+              "required": false,
+              "display": true,
+              "type": "boolean",
+              "removed": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.mcpClient",
+      "typeVersion": 1,
+      "position": [
+        3616,
+        1600
+      ],
+      "id": "6c6c604b-953c-48a2-999c-fa05a2021a65",
+      "name": "MCP: ESLint",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "aEL2psVJ2PxnHw9b",
+          "name": "Header Auth account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "numberInputs": 4
+      },
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        3840,
+        1280
+      ],
+      "id": "dcb7d5c8-6aea-41c0-84ab-241499832cc2",
+      "name": "Merge Findings (Semgrep/Trivy/Gitleaks/ESLint)"
+    },
+    {
+      "parameters": {
+        "jsCode": "const findings = [];\nfor (const item of $input.all()) {\n  for (const c of item.json.content || []) {\n    if (c.text?.normalized_report) findings.push(c.text.normalized_report);\n  }\n}\nreturn [{ json: { findings } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        4064,
+        1312
+      ],
+      "id": "2da3c3e4-88be-4822-8349-5a729ec93d47",
+      "name": "Normalize Findings"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ JSON.stringify($json.findings).slice(0, 12000) }}",
+        "options": {
+          "systemMessage": "Resume y agrupa las vulnerabilidades detectadas por las herramientas. Indica severidad y archivos afectados. Sé corto y accionable."
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        4288,
+        1312
+      ],
+      "id": "ba722f58-4458-4e69-8eca-82840dd12fe7",
+      "name": "AI Toolchain Summary"
+    },
+    {
+      "parameters": {
+        "mode": "combine",
+        "combineBy": "combineAll",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        4640,
+        1104
+      ],
+      "id": "9df5ce61-d65b-4725-abdb-fcd4b979edbd",
+      "name": "Merge (PushReview + ToolSummary)"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=\nContexto:\n- Proyecto: {{ $('Build Unified Diff').item.json.projectPath }}\n- Branch: {{ $('Build Unified Diff').item.json.ref }}\n- Commit: {{ $('Build Unified Diff').item.json.after }}\n- Compare: {{ $('Build Unified Diff').item.json.compare.web_url }}\n\nInput A (AI Push Review):\n{{ $('AI Push Review').item.json.output || $('AI Push Review').item.json.text || JSON.stringify($('AI Push Review').item.json) }}\n\nInput B (Toolchain Summary):\n{{ $('AI Toolchain Summary').item.json.output || $('AI Toolchain Summary').item.json.text || JSON.stringify($('AI Toolchain Summary').item.json) }}\n\nTarea:\n1) Correlaciona findings con el diff (¿nuevo vs heredado?)\n2) Prioriza (Top 3 riesgos reales)\n3) Da decisión: PASS / WARN / BLOCK\n4) Si BLOCK: lista acciones concretas (qué arreglar primero)\nDevuelve en Markdown.\n",
+        "options": {
+          "systemMessage": "Eres un motor de correlación de seguridad DevSecOps. Combinas evidencia (tools) + contexto (diff) y decides PASS/WARN/BLOCK con recomendaciones concretas. Evita ruido."
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        4864,
+        1104
+      ],
+      "id": "fb18aa15-85d4-4193-a5c5-8d4adccf62f0",
+      "name": "AI Correlation Engine"
+    },
+    {
+      "parameters": {
+        "jsCode": "const correlationText = items[0].json.text || items[0].json.output || items[0].json.message || JSON.stringify(items[0].json);\nconst ref = $('Normalize Push Payload').item.json.ref;\nconst after = $('Normalize Push Payload').item.json.after;\nconst authorName = $('Normalize Push Payload').item.json.authorName;\nconst authorEmail = $('Normalize Push Payload').item.json.authorEmail;\nconst commitUrl = $('Normalize Push Payload').item.json.commitUrl;\n\nconst comment = `🤖 **AI DevSecOps Review (auto)**\\n\\n**Branch:** ${ref}\\n**Commit:** ${after}\\n**Commit URL:** ${commitUrl || ''}\\n**Author:** ${authorName || 'unknown'} ${authorEmail ? `(${authorEmail})` : ''}\\n\\n---\\n\\n${correlationText}`;\n\nreturn [{ json: { ...$('Normalize Push Payload').item.json, commentBody: comment } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        5216,
+        1104
+      ],
+      "id": "87997539-0d9e-4b03-87bc-2a946755f20c",
+      "name": "Format Commit Comment"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://gitlab.com/api/v4/projects/{{ $json.projectId }}/repository/commits/{{ $json.after }}/comments",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "gitlabApi",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "note",
+              "value": "={{ $json.commentBody }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        5440,
+        1104
+      ],
+      "id": "588935e7-0170-44a3-9071-30af83661edb",
+      "name": "GitLab: Post Commit Comment",
+      "credentials": {
+        "gitlabApi": {
+          "id": "UObGsXqUVQ5GQh1o",
+          "name": "GitLab account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOllama",
+      "typeVersion": 1,
+      "position": [
+        4224,
+        1056
+      ],
+      "id": "270f5f27-98e3-46d7-8e4a-8d067f23a89d",
+      "name": "Ollama Chat Model",
+      "credentials": {
+        "ollamaApi": {
+          "id": "hfi9dGwfkR6ILMDA",
+          "name": "Ollama account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOllama",
+      "typeVersion": 1,
+      "position": [
+        4160,
+        1520
+      ],
+      "id": "1cf20a4c-d139-404d-85d8-ed11669b6534",
+      "name": "Ollama Chat Model1",
+      "credentials": {
+        "ollamaApi": {
+          "id": "hfi9dGwfkR6ILMDA",
+          "name": "Ollama account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOllama",
+      "typeVersion": 1,
+      "position": [
+        4736,
+        1312
+      ],
+      "id": "5940541c-c9fe-4a7f-a12c-2716fdc6ab0d",
+      "name": "Ollama Chat Model2",
+      "credentials": {
+        "ollamaApi": {
+          "id": "hfi9dGwfkR6ILMDA",
+          "name": "Ollama account"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "GitLab Trigger (Push)": {
+      "main": [
+        [
+          {
+            "node": "Normalize Push Payload",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalize Push Payload": {
+      "main": [
+        [
+          {
+            "node": "IF Branch == main",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF Branch == main": {
+      "main": [
+        [
+          {
+            "node": "GitLab Compare (before→after)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "GitLab Compare (before→after)": {
+      "main": [
+        [
+          {
+            "node": "Build Unified Diff",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Unified Diff": {
+      "main": [
+        [
+          {
+            "node": "IF diffsCount > 0",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF diffsCount > 0": {
+      "main": [
+        [
+          {
+            "node": "AI Push Review",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Set Toolchain Fields",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
+      ]
+    },
+    "Set Toolchain Fields": {
+      "main": [
+        [
+          {
+            "node": "MCP: Clone Repository",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "MCP: Clone Repository": {
+      "main": [
+        [
+          {
+            "node": "MCP: Semgrep",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "MCP: Trivy",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "MCP: Gitleaks",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "MCP: ESLint",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "MCP: Semgrep": {
+      "main": [
+        [
+          {
+            "node": "Merge Findings (Semgrep/Trivy/Gitleaks/ESLint)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "MCP: Trivy": {
+      "main": [
+        [
+          {
+            "node": "Merge Findings (Semgrep/Trivy/Gitleaks/ESLint)",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "MCP: Gitleaks": {
+      "main": [
+        [
+          {
+            "node": "Merge Findings (Semgrep/Trivy/Gitleaks/ESLint)",
+            "type": "main",
+            "index": 2
+          }
+        ]
+      ]
+    },
+    "MCP: ESLint": {
+      "main": [
+        [
+          {
+            "node": "Merge Findings (Semgrep/Trivy/Gitleaks/ESLint)",
+            "type": "main",
+            "index": 3
+          }
+        ]
+      ]
+    },
+    "Merge Findings (Semgrep/Trivy/Gitleaks/ESLint)": {
+      "main": [
+        [
+          {
+            "node": "Normalize Findings",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalize Findings": {
+      "main": [
+        [
+          {
+            "node": "AI Toolchain Summary",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Push Review": {
+      "main": [
+        [
+          {
+            "node": "Merge (PushReview + ToolSummary)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Toolchain Summary": {
+      "main": [
+        [
+          {
+            "node": "Merge (PushReview + ToolSummary)",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Merge (PushReview + ToolSummary)": {
+      "main": [
+        [
+          {
+            "node": "AI Correlation Engine",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Correlation Engine": {
+      "main": [
+        [
+          {
+            "node": "Format Commit Comment",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Commit Comment": {
+      "main": [
+        [
+          {
+            "node": "GitLab: Post Commit Comment",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Ollama Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Push Review",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Ollama Chat Model1": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Toolchain Summary",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Ollama Chat Model2": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Correlation Engine",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "availableInMCP": false
+  },
+  "versionId": "8addb728-6b91-494b-961e-3d8c9abea6e6",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "8a064d422350ec0e93863e050932b30d8a042c97eed8c3780694dea13149eeb9"
+  },
+  "id": "yVBPtdNcUCuxMSd27JEaN",
+  "tags": [
+    {
+      "updatedAt": "2026-01-27T16:19:18.510Z",
+      "createdAt": "2026-01-27T16:19:18.510Z",
+      "id": "VuiSeCk7VYIhVcnk",
+      "name": "devsecops"
+    }
+  ]
+}

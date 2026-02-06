@@ -1,0 +1,892 @@
+{
+  "name": "Pruebas_qualys",
+  "nodes": [
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        -144,
+        112
+      ],
+      "id": "e85d81c3-76aa-4800-a925-2af2344ab962",
+      "name": "When clicking ‘Execute workflow’"
+    },
+    {
+      "parameters": {
+        "serverTransport": "sse",
+        "endpointUrl": "http://defectdojo-mcp:8000/sse",
+        "authentication": "headerAuth",
+        "tool": {
+          "__rl": true,
+          "value": "apptracker_get_apis_with_variables",
+          "mode": "list",
+          "cachedResultName": "apptracker_get_apis_with_variables"
+        },
+        "parameters": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "only_with_variables": true
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "limit",
+              "displayName": "Limit",
+              "defaultMatch": false,
+              "required": false,
+              "display": true,
+              "type": "string",
+              "removed": true
+            },
+            {
+              "id": "only_with_variables",
+              "displayName": "Only With Variables",
+              "defaultMatch": false,
+              "required": false,
+              "display": true,
+              "type": "boolean",
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.mcpClient",
+      "typeVersion": 1,
+      "position": [
+        80,
+        16
+      ],
+      "id": "a8b26dd1-ffce-4ecd-bca8-8379d6095308",
+      "name": "Get APIs",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "aEL2psVJ2PxnHw9b",
+          "name": "Header Auth account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// ✅ Works whether `text` is a stringified JSON or already an object\nlet payload = $input.first().json?.content?.[0]?.text;\n\nif (typeof payload === \"string\") {\n  payload = JSON.parse(payload);\n}\n\n// payload.apis should be the array\nconst apis = payload?.apis ?? [];\n\nreturn apis.map(a => ({\n  json: {\n    apiId: a.apiId,\n    apiName: a.apiName,\n    basePath: a.basePath,\n    description: a.description ?? \"\"\n  }\n}));\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        304,
+        16
+      ],
+      "id": "30b796e9-c76e-42da-93eb-6defee6ab9fd",
+      "name": "Extract APIs",
+      "executeOnce": false
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "id": "66b66ced-7b03-4396-b421-5e5639186307",
+      "name": "Loop Over Items",
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        528,
+        16
+      ]
+    },
+    {
+      "parameters": {
+        "serverTransport": "sse",
+        "endpointUrl": "http://defectdojo-mcp:8000/sse",
+        "authentication": "headerAuth",
+        "tool": {
+          "__rl": true,
+          "value": "qualys_was_launch_scan",
+          "mode": "list",
+          "cachedResultName": "qualys_was_launch_scan"
+        },
+        "parameters": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "url": "={{ $json.basePath }}",
+            "scan_name": "={{ $json.apiName }}",
+            "profile_id": "3558782",
+            "webapp_name": "={{ $json.apiName }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "url",
+              "displayName": "Url",
+              "defaultMatch": false,
+              "required": true,
+              "display": true,
+              "type": "string",
+              "removed": false
+            },
+            {
+              "id": "webapp_name",
+              "displayName": "Webapp Name",
+              "defaultMatch": false,
+              "required": false,
+              "display": true,
+              "type": "string",
+              "removed": false
+            },
+            {
+              "id": "scan_name",
+              "displayName": "Scan Name",
+              "defaultMatch": false,
+              "required": false,
+              "display": true,
+              "type": "string",
+              "removed": false
+            },
+            {
+              "id": "profile_id",
+              "displayName": "Profile Id",
+              "defaultMatch": false,
+              "required": false,
+              "display": true,
+              "type": "string",
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.mcpClient",
+      "typeVersion": 1,
+      "position": [
+        752,
+        -64
+      ],
+      "id": "5cf4ff3f-bf6a-4f6c-be10-268cfe85e5ae",
+      "name": "Launch Scan",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "aEL2psVJ2PxnHw9b",
+          "name": "Header Auth account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "unit": "minutes"
+      },
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        976,
+        -64
+      ],
+      "id": "d2b10274-ab9a-4e43-b450-4d5a26f31a7f",
+      "name": "Wait for Scan",
+      "webhookId": "b913e3d3-2460-4fb1-93d9-eea0ee1a8903"
+    },
+    {
+      "parameters": {
+        "serverTransport": "sse",
+        "endpointUrl": "http://defectdojo-mcp:8000/sse",
+        "authentication": "headerAuth",
+        "tool": {
+          "__rl": true,
+          "value": "qualys_was_check_status",
+          "mode": "list",
+          "cachedResultName": "qualys_was_check_status"
+        },
+        "parameters": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "scan_id": "={{ $('Launch Scan').first().json.content[0].text.scan_id }}"
+          },
+          "matchingColumns": [
+            "scan_id"
+          ],
+          "schema": [
+            {
+              "id": "scan_id",
+              "displayName": "Scan Id",
+              "defaultMatch": false,
+              "required": true,
+              "display": true,
+              "type": "string",
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.mcpClient",
+      "typeVersion": 1,
+      "position": [
+        1200,
+        -144
+      ],
+      "id": "cb33ad3e-df19-4707-b946-a0ed5946d508",
+      "name": "Check Status",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "aEL2psVJ2PxnHw9b",
+          "name": "Header Auth account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "5c06bbf5-676e-4cce-8e68-178ddb9c0353",
+              "leftValue": "={{ $json.content[0].text.status }}",
+              "rightValue": "FINISHED",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        1424,
+        -64
+      ],
+      "id": "8ab5140c-140d-425e-9be1-7e8b81eaec44",
+      "name": "Is Finished?"
+    },
+    {
+      "parameters": {
+        "serverTransport": "sse",
+        "endpointUrl": "http://defectdojo-mcp:8000/sse",
+        "authentication": "headerAuth",
+        "tool": {
+          "__rl": true,
+          "value": "qualys_was_finalize_scan",
+          "mode": "list",
+          "cachedResultName": "qualys_was_finalize_scan"
+        },
+        "parameters": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "product_name": "={{ $('Loop Over Items').item.json.apiName }}",
+            "engagement_name": "product_mcp_1",
+            "delete_scan": true,
+            "scan_id": "={{ $json.content[0].text.scan_id }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "scan_id",
+              "displayName": "Scan Id",
+              "defaultMatch": false,
+              "required": true,
+              "display": true,
+              "type": "string",
+              "removed": false
+            },
+            {
+              "id": "product_name",
+              "displayName": "Product Name",
+              "defaultMatch": false,
+              "required": true,
+              "display": true,
+              "type": "string",
+              "removed": false
+            },
+            {
+              "id": "engagement_name",
+              "displayName": "Engagement Name",
+              "defaultMatch": false,
+              "required": true,
+              "display": true,
+              "type": "string",
+              "removed": false
+            },
+            {
+              "id": "delete_scan",
+              "displayName": "Delete Scan",
+              "defaultMatch": false,
+              "required": false,
+              "display": true,
+              "type": "boolean",
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.mcpClient",
+      "typeVersion": 1,
+      "position": [
+        1552,
+        -400
+      ],
+      "id": "ada3fb83-6ebe-41fc-aae6-b8da9a9167d3",
+      "name": "Finalize Scan",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "aEL2psVJ2PxnHw9b",
+          "name": "Header Auth account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "weeks",
+              "triggerAtHour": 1
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.3,
+      "position": [
+        -144,
+        -96
+      ],
+      "id": "b036a324-4ef9-4f64-ada6-1e1cf677ffd7",
+      "name": "Schedule Trigger"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $json.content[0].text.text }}",
+        "options": {
+          "systemMessage": "Eres un analista senior de ciberseguridad.\n Resume el texto\nEl resumen debe basarse ÚNICAMENTE en la información contenida en el texto.\n\nIncluye de forma clara y estructurada:\n- Aplicación o URL evaluada\n- Ambiente evaluado\n- Nivel de riesgo general\n- Número total de vulnerabilidades por severidad\n- Vulnerabilidades críticas y altas (si existen)\n- Hallazgos OWASP relevantes dividelos por nivel de criticidad\n- Recomendaciones técnicas por concretas por tipo de vulnerabilidad para el equipo de desarrollo \n\nUsa lenguaje claro, técnico y ejecutivo.\nNo inventes información.\nMáximo una página.\n"
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        2496,
+        -464
+      ],
+      "id": "64c051f2-88fe-4f0c-96b6-4237702aa4e7",
+      "name": "AI Agent"
+    },
+    {
+      "parameters": {
+        "serverTransport": "sse",
+        "endpointUrl": "http://defectdojo-mcp:8000/sse",
+        "authentication": "headerAuth",
+        "tool": {
+          "__rl": true,
+          "value": "qualys_was_create_report_pdf",
+          "mode": "list",
+          "cachedResultName": "qualys_was_create_report_pdf"
+        },
+        "parameters": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "scan_id": "{{ $('Launch Scan').first().json.content[0].text.scan_id }}"
+          },
+          "matchingColumns": [
+            "scan_id"
+          ],
+          "schema": [
+            {
+              "id": "scan_id",
+              "displayName": "Scan Id",
+              "defaultMatch": false,
+              "required": true,
+              "display": true,
+              "type": "string",
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.mcpClient",
+      "typeVersion": 1,
+      "position": [
+        1744,
+        -400
+      ],
+      "id": "37e75fd8-0459-4872-b040-54679569c196",
+      "name": "Finalize Scan1",
+      "retryOnFail": false,
+      "maxTries": 5,
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "aEL2psVJ2PxnHw9b",
+          "name": "Header Auth account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "serverTransport": "sse",
+        "endpointUrl": "http://defectdojo-mcp:8000/sse",
+        "authentication": "headerAuth",
+        "tool": {
+          "__rl": true,
+          "value": "qualys_was_download_report_pdf",
+          "mode": "list",
+          "cachedResultName": "qualys_was_download_report_pdf"
+        },
+        "parameters": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "report_id": "={{ $('Finalize Scan1').item.json.content[0].text.report_id }}"
+          },
+          "matchingColumns": [
+            "report_id"
+          ],
+          "schema": [
+            {
+              "id": "report_id",
+              "displayName": "Report Id",
+              "defaultMatch": false,
+              "required": true,
+              "display": true,
+              "type": "string",
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.mcpClient",
+      "typeVersion": 1,
+      "position": [
+        2048,
+        -192
+      ],
+      "id": "03f036f2-cfe2-4996-b36e-3ab564de4661",
+      "name": "Finalize Scan2",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "aEL2psVJ2PxnHw9b",
+          "name": "Header Auth account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "amount": 60
+      },
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        1872,
+        -112
+      ],
+      "id": "9dba9c5f-469d-4091-b1d3-e04d7a6c228a",
+      "name": "Wait for Scan1",
+      "webhookId": "b913e3d3-2460-4fb1-93d9-eea0ee1a8903"
+    },
+    {
+      "parameters": {
+        "serverTransport": "sse",
+        "endpointUrl": "http://defectdojo-mcp:8000/sse",
+        "authentication": "headerAuth",
+        "tool": {
+          "__rl": true,
+          "value": "pdf_extract_text",
+          "mode": "list",
+          "cachedResultName": "pdf_extract_text"
+        },
+        "parameters": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "pdf_base64": "={{ $('Finalize Scan2').item.json.content[0].text.pdf_base64 }}"
+          },
+          "matchingColumns": [
+            "pdf_base64"
+          ],
+          "schema": [
+            {
+              "id": "pdf_base64",
+              "displayName": "Pdf Base64",
+              "defaultMatch": false,
+              "required": true,
+              "display": true,
+              "type": "string",
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.mcpClient",
+      "typeVersion": 1,
+      "position": [
+        2416,
+        -320
+      ],
+      "id": "201490e2-94b4-4e0f-bdcd-32b7fb1f2f1e",
+      "name": "Finalize Scan3",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "aEL2psVJ2PxnHw9b",
+          "name": "Header Auth account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1,
+      "position": [
+        2560,
+        -224
+      ],
+      "id": "93eeda8a-7974-457d-b8f6-756f180891ba",
+      "name": "Google Gemini Chat Model",
+      "credentials": {
+        "googlePalmApi": {
+          "id": "PfESTUp58ZX74GgU",
+          "name": "Google Gemini(PaLM) Api account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "return [{\n  json: {},\n  binary: {\n    data: {\n      data:$input.first().json.content[0].text.pdf_base64,\n      fileName: $input.first().json.content[0].text.filename,\n      mimeType: 'application/pdf'\n    }\n  }\n}];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2256,
+        -224
+      ],
+      "id": "0c95cefb-c4d2-44dd-bb49-c8bed403cab9",
+      "name": "Code in JavaScript"
+    },
+    {
+      "parameters": {
+        "sendTo": "ahmedpuco03@gmail.com",
+        "subject": "pruebas_qualys",
+        "message": "pruebas",
+        "options": {
+          "attachmentsUi": {
+            "attachmentsBinary": [
+              {}
+            ]
+          }
+        }
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        2768,
+        256
+      ],
+      "id": "2adcb5d3-857c-4e1a-b417-21d6d0a63003",
+      "name": "Send a message",
+      "webhookId": "9418c7c3-352b-44d0-8ea8-af92167f3e62",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "MGtklAJs1RmL29jv",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "7193dae9-05bb-42bb-bcc1-d0774430a7b0",
+              "leftValue": "={{ $json.content[0].text }}",
+              "rightValue": "No Web Service",
+              "operator": {
+                "type": "string",
+                "operation": "equals",
+                "name": "filter.operator.equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        1392,
+        176
+      ],
+      "id": "91e53b5b-605b-41f6-b6f1-733e70b939ba",
+      "name": "If"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "When clicking ‘Execute workflow’": {
+      "main": [
+        [
+          {
+            "node": "Get APIs",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get APIs": {
+      "main": [
+        [
+          {
+            "node": "Extract APIs",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract APIs": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Loop Over Items": {
+      "main": [
+        [],
+        [
+          {
+            "node": "Launch Scan",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Launch Scan": {
+      "main": [
+        [
+          {
+            "node": "Wait for Scan",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait for Scan": {
+      "main": [
+        [
+          {
+            "node": "Check Status",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Status": {
+      "main": [
+        [
+          {
+            "node": "Is Finished?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Is Finished?": {
+      "main": [
+        [
+          {
+            "node": "Finalize Scan",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "If",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Finalize Scan": {
+      "main": [
+        [
+          {
+            "node": "Finalize Scan1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Schedule Trigger": {
+      "main": [
+        [
+          {
+            "node": "Get APIs",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Finalize Scan1": {
+      "main": [
+        [
+          {
+            "node": "Wait for Scan1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Finalize Scan2": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait for Scan1": {
+      "main": [
+        [
+          {
+            "node": "Finalize Scan2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Finalize Scan3": {
+      "main": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Agent": {
+      "main": [
+        [
+          {
+            "node": "Send a message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Gemini Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript": {
+      "main": [
+        [
+          {
+            "node": "Finalize Scan3",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send a message": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Wait for Scan",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "availableInMCP": false,
+    "timeSavedMode": "fixed",
+    "callerPolicy": "workflowsFromSameOwner"
+  },
+  "versionId": "ebf91942-a06a-417c-ad9a-824c0e1c03bb",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "8a064d422350ec0e93863e050932b30d8a042c97eed8c3780694dea13149eeb9"
+  },
+  "id": "CIsZCze7qztg-7Yjmn4Vf",
+  "tags": []
+}
